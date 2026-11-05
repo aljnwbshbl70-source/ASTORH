@@ -85,6 +85,8 @@ body{padding-bottom:84px}
 .loc{background:var(--soft);border-radius:14px;padding:12px;margin-top:12px}
 .loc small{display:block;color:var(--muted);margin-top:6px}
 .soc a{color:var(--accent);font-weight:600;margin:0 8px}
+.wafab{position:fixed;bottom:86px;left:14px;z-index:70;width:52px;height:52px;border-radius:50%;background:#25d366;display:grid;place-items:center;font-size:1.6rem;text-decoration:none;box-shadow:var(--sh)}
+.chk{display:flex;gap:8px;align-items:center;font-weight:600;margin:6px 0}.chk input{width:auto}
 .sw{flex:1;position:relative;min-width:0}
 .sug{position:absolute;top:100%;right:0;left:0;margin-top:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh);max-height:320px;overflow:auto;z-index:60}
 .sug button{display:block;width:100%;text-align:right;border:0;border-radius:0;background:none;padding:10px 14px;border-bottom:1px solid var(--line)}
@@ -111,11 +113,12 @@ body{padding-bottom:84px}
   <div id="chips" class="chips"></div>
   <div id="subchips" class="chips subchips" hidden></div>
   <div id="featWrap" hidden><h3 class="sec">⭐ منتجات مميزة</h3><div id="feat" class="grid"></div></div>
-  <h3 class="sec" id="allT">كل المنتجات</h3>
+  <div style="display:flex;justify-content:space-between;align-items:center"><h3 class="sec" id="allT">كل المنتجات</h3><select id="sort" style="width:auto;padding:6px 10px"><option value="">الأحدث</option><option value="lo">الأرخص</option><option value="hi">الأغلى</option></select></div>
   <div id="list" class="grid"></div>
 </main>
 
 <footer><div class="wrap"><div id="fName"></div><div id="fInfo"></div><div id="fSoc" class="soc"></div><div id="fTxt"></div></div></footer>
+<a id="wafab" class="wafab" hidden target="_blank" rel="noopener" aria-label="واتساب">💬</a>
 <button id="fbar" class="fbar" hidden><span id="fcount"></span><span id="ftot"></span></button>
 <div id="toast" role="status"></div>
 <div id="ov" class="ov" hidden><div class="sheet" id="sheet"></div></div>
@@ -203,9 +206,11 @@ async function init() {
   applySettings();
   renderChips();
   render();
+  const dm = location.hash.match(/^#p=(.+)$/), dp = dm && prods.find(x => x.id === dm[1]);
+  if (dp) openProduct(dp);
   let seen = false; try { seen = sessionStorage.getItem("seen"); } catch {}
   const pop = S.videoMode === "popup" && S.videoUrl;
-  if ((S.notice || pop) && !seen) {
+  if ((S.notice || pop) && !seen && !dp) {
     open([S.notice && el("h2", { text: "📢 تنبيه" }), S.notice && el("p", { text: S.notice, style: "white-space:pre-line;font-size:1.05rem" }), pop && videoEl(), el("button", { class: "pri", style: "width:100%", text: "دخول المتجر", onclick: close })].filter(Boolean));
     try { sessionStorage.setItem("seen", "1"); } catch {}
   }
@@ -220,6 +225,8 @@ function applySettings() {
   const rs = document.documentElement.style;
   if (S.color) { rs.setProperty("--accent", S.color); rs.setProperty("--accent2", `color-mix(in srgb,${S.color} 80%,#000)`); rs.setProperty("--soft", `color-mix(in srgb,${S.color} 12%,var(--card))`); }
   rs.setProperty("--cols", Number(S.cols) || 3);
+  const w = String(S.whatsapp || "").replace(/\D/g, "");
+  if (w && S.waFloat !== false) { $("wafab").href = `https://wa.me/${w}?text=${encodeURIComponent("السلام عليكم، عندي استفسار")}`; $("wafab").hidden = false; }
   if (S.footer) $("fTxt").textContent = S.footer;
   if (/^https?:\/\//i.test(S.insta || "")) $("fSoc").append(el("a", { href: S.insta, target: "_blank", rel: "noopener", text: "📸 تابعونا" }));
   if (S.videoMode === "hero" && S.videoUrl) $("vidBox").replaceChildren(videoEl());
@@ -244,7 +251,7 @@ function renderChips() {
 
 /* المنتجات */
 function matches(p) {
-  if (term && !(p.name || "").toLowerCase().includes(term.toLowerCase())) return false;
+  if (term && !((p.name || "") + " " + (p.keywords || "")).toLowerCase().includes(term.toLowerCase())) return false;
   if (selSub) return p.categoryId === selSub;
   if (selCat) { const ids = [selCat, ...cats.filter(c => c.parentId === selCat).map(c => c.id)]; return ids.includes(p.categoryId); }
   return true;
@@ -253,11 +260,11 @@ function card(p) {
   const out = p.status === "soldout";
   return el("div", { class: "pc", onclick: () => openProduct(p) },
     img(p.images?.[0]),
-    out ? el("span", { class: "tag out", text: "نافد" }) : p.featured ? el("span", { class: "tag", text: "مميز" }) : null,
+    out ? el("span", { class: "tag out", text: "نافد" }) : p.badge ? el("span", { class: "tag", text: p.badge }) : p.featured ? el("span", { class: "tag", text: "مميز" }) : null,
     el("div", { class: "b" }, el("p", { class: "n", text: p.name }), el("div", { class: "c", text: p.categoryName || "" }), el("div", { class: "p", text: "من " + money(p.minPrice || 0) })));
 }
 function render() {
-  const list = prods.filter(matches);
+  const list = prods.filter(matches).sort(sorter);
   const showFeat = S.showFeat !== false && !selCat && !term && list.some(p => p.featured);
   $("featWrap").hidden = !showFeat;
   if (showFeat) $("feat").replaceChildren(...list.filter(p => p.featured).map(card));
@@ -277,6 +284,9 @@ let qt; $("q").oninput = e => { const v = e.target.value.trim(); showSug(v); cle
 $("q").onkeydown = e => { if (e.key === "Enter") { sug.hidden = true; term = e.target.value.trim(); render(); } };
 document.addEventListener("click", e => { if (!e.target.closest(".sw")) sug.hidden = true; });
 
+const sorter = (a, b) => { const v = $("sort").value; return v === "lo" ? (a.minPrice || 0) - (b.minPrice || 0) : v === "hi" ? (b.minPrice || 0) - (a.minPrice || 0) : 0; };
+$("sort").onchange = () => render();
+const feeFor = (sub, pick) => pick ? 0 : (Number(S.freeFrom) > 0 && sub >= Number(S.freeFrom)) ? 0 : Number(S.deliveryFee) || 0;
 /* النوافذ */
 const open = (nodes, drawer = false) => { $("ov").className = "ov" + (drawer ? " drawer" : ""); $("sheet").replaceChildren(...nodes); $("ov").hidden = false; };
 const close = () => { $("ov").hidden = true; $("sheet").replaceChildren(); };
@@ -297,19 +307,23 @@ function openProduct(p) {
     addBtn.disabled = out; addBtn.textContent = out ? "غير متوفر" : "أضف إلى السلة";
   };
   const optRow = (arr, get, set, lbl, dis) => { const wrap = el("div", { class: "opts" }); const draw = () => wrap.replaceChildren(...arr.map(o => el("button", { type: "button", class: "opt" + (get() === o ? " on" : ""), disabled: dis?.(o), text: lbl(o), onclick: () => { set(o); draw(); refresh(); } }))); draw(); return wrap; };
+  main.style.cursor = "zoom-in";
+  main.onclick = () => { const z = el("div", { style: "position:fixed;inset:0;z-index:400;background:#000e;display:grid;place-items:center", onclick: () => z.remove() }, el("img", { src: main.src, style: "max-width:96%;max-height:96%;border-radius:12px" })); document.body.append(z); };
   const nodes = [main, thumbs, el("h2", { text: p.name, style: "margin:6px 0" }), el("div", { class: "c", style: "color:var(--muted)", text: p.categoryName || "" }), priceEl];
   if (sizes.length) nodes.push(el("label", { text: "الحجم" }), optRow(sizes, () => size, v => size = v, s => `${s.label} — ${money(s.price)}`, s => s.stock === 0));
   if (flavors.length) nodes.push(el("label", { text: "النكهة / الرائحة" }), optRow(flavors, () => flavor, v => flavor = flavor === v ? null : v, f => f.name + (f.extraPrice ? ` (+${f.extraPrice})` : "")));
   nodes.push(el("label", { text: "الكمية" }), el("div", { class: "qty" }, el("button", { text: "−", onclick: () => { qty = Math.max(1, qty - 1); refresh(); } }), qtyEl, el("button", { text: "+", onclick: () => { qty = Math.min(50, qty + 1); refresh(); } })));
   if (p.description) nodes.push(el("label", { text: "الوصف" }), el("p", { text: p.description, style: "white-space:pre-line;margin:0" }));
   if (p.usage) nodes.push(el("label", { text: "طريقة الاستخدام" }), el("p", { text: p.usage, style: "white-space:pre-line;margin:0" }));
+  const note = el("input", { placeholder: "مثال: نقش اسم / لون التغليف" });
+  nodes.push(el("label", { text: "ملاحظة على المنتج (اختياري)" }), note);
   addBtn.onclick = () => {
-    const key = [p.id, size?.label, flavor?.name].join("|");
+    const key = [p.id, size?.label, flavor?.name, note.value.trim()].join("|");
     const ex = cart.find(i => i.key === key);
-    if (ex) ex.qty += qty; else cart.push({ key, id: p.id, name: p.name, image: p.images?.[0] || "", size: size?.label || "", flavor: flavor?.name || "", unit: unit(), qty });
+    if (ex) ex.qty += qty; else cart.push({ key, id: p.id, name: p.name, image: p.images?.[0] || "", size: size?.label || "", flavor: flavor?.name || "", note: note.value.trim(), unit: unit(), qty });
     saveCart(); toast("تمت الإضافة للسلة ✓"); close();
   };
-  nodes.push(addBtn, el("button", { text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close }));
+  nodes.push(addBtn, el("button", { text: "🔗 مشاركة المنتج", style: "width:100%;margin-top:8px", onclick: () => { const u = location.origin + location.pathname + "#p=" + p.id; if (navigator.share) navigator.share({ title: p.name, url: u }).catch(() => {}); else navigator.clipboard?.writeText(u).then(() => toast("تم نسخ الرابط")); } }), el("button", { text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close }));
   refresh(); open(nodes);
 }
 
@@ -321,7 +335,7 @@ $("cartBtn").onclick = openCart; $("fbar").onclick = openCart;
 
 function openCart() {
   if (!cart.length) { open([el("h2", { text: "السلة" }), el("p", { class: "empty", text: "سلتك فارغة 🛍️" }), el("button", { text: "متابعة التسوق", onclick: close })], true); return; }
-  const fee = Number(S.deliveryFee) || 0, min = Number(S.minOrder) || 0, sub = subtotal(), st = deliveryState();
+  const fee = feeFor(subtotal(), false), min = Number(S.minOrder) || 0, sub = subtotal(), st = deliveryState();
   const items = el("div", { style: "flex:1;overflow:auto" }, ...cart.map((i, idx) => el("div", { class: "ci" },
     img(i.image),
     el("div", { class: "i" }, el("b", { text: i.name }), el("br"), el("small", { text: [i.size, i.flavor].filter(Boolean).join(" • ") }), el("div", { text: money(i.unit * i.qty), style: "color:var(--accent);font-weight:700" })),
@@ -334,6 +348,8 @@ function openCart() {
     el("div", { class: "row tot" }, el("span", { text: "الإجمالي" }), el("span", { text: money(sub + fee) })));
   if (min && sub < min) foot.append(el("p", { class: "warn", text: `الحد الأدنى للطلب ${money(min)} — تبقى ${money(min - sub)}` }));
   if (!st.open) foot.append(el("p", { class: "warn", text: st.msg }));
+  if (Number(S.freeFrom) > 0 && sub < Number(S.freeFrom)) foot.append(el("p", { style: "color:var(--ok);font-weight:600;font-size:.85rem", text: `أضيفي ${money(Number(S.freeFrom) - sub)} ويصلك التوصيل مجاناً 🎉` }));
+  if (S.etaText) foot.append(el("small", { text: "🚚 " + S.etaText }));
   const go = el("button", { class: "pri", style: "width:100%;margin-top:10px", text: "إتمام الطلب", disabled: (min && sub < min) || !st.open, onclick: openCheckout });
   open([el("h2", { text: "🛒 سلة التسوق" }), items, foot, go, el("button", { text: "متابعة التسوق", style: "width:100%;margin-top:8px", onclick: close })], true);
 }
@@ -345,6 +361,14 @@ function openCheckout() {
   const phone = el("input", { type: "tel", dir: "ltr", placeholder: "05XXXXXXXX", value: saved.phone || "", required: true, inputmode: "tel" });
   const addr = el("textarea", { placeholder: "الحي، الشارع، أقرب معلم", required: true }); addr.value = saved.address || "";
   const note = el("textarea", { placeholder: "ملاحظات إضافية (اختياري)" });
+  const pickup = el("input", { type: "checkbox" }), gift = el("input", { type: "checkbox" });
+  const gName = el("input", { placeholder: "اسم المستلمة" }), gMsg = el("textarea", { placeholder: "رسالة الإهداء" });
+  const gBox = el("div", { hidden: "" }, el("label", { text: "اسم المستلمة" }), gName, el("label", { text: "رسالة الإهداء" }), gMsg);
+  gift.onchange = () => { gBox.hidden = !gift.checked; };
+  pickup.onchange = () => { addr.required = !pickup.checked; };
+  const opts = el("div", { class: "loc" },
+    S.pickupOn !== false ? el("label", { class: "chk" }, pickup, " 🏬 استلام من المحل (بدون توصيل)") : null,
+    S.giftOn !== false ? el("label", { class: "chk" }, gift, " 🎁 الطلب هدية لشخص آخر") : null, gBox);
   let loc = null;
   const lm = S.locMode || "optional";
   const locInfo = el("small", { text: lm === "required" ? "الموقع مطلوب لتسهيل التوصيل" : "اختياري — يساعد المندوب في الوصول إليك" });
@@ -357,7 +381,7 @@ function openCheckout() {
   } });
   const locBox = lm === "off" ? null : el("div", { class: "loc" }, el("b", { text: "📍 موقع التوصيل" }), el("div", { style: "display:flex;flex-direction:column;gap:8px;margin-top:8px" }, locBtn, other), locInfo);
   const btn = el("button", { class: "pri", type: "submit", style: "width:100%;margin-top:14px", text: "تأكيد وإرسال عبر الواتساب" });
-  const form = el("form", {}, el("h2", { text: "بيانات التوصيل" }), el("label", { text: "الاسم" }), name, el("label", { text: "رقم الجوال" }), phone, el("label", { text: "العنوان" }), addr, el("label", { text: "ملاحظات" }), note, locBox, btn,
+  const form = el("form", {}, el("h2", { text: "بيانات التوصيل" }), el("label", { text: "الاسم" }), name, el("label", { text: "رقم الجوال" }), phone, el("label", { text: "العنوان" }), addr, el("label", { text: "ملاحظات" }), note, opts, locBox, btn,
     el("button", { type: "button", text: "رجوع للسلة", style: "width:100%;margin-top:8px", onclick: openCart }));
   form.onsubmit = async e => {
     e.preventDefault();
@@ -366,21 +390,22 @@ function openCheckout() {
     const wa = String(S.whatsapp || "").replace(/\D/g, "");
     if (!wa) { toast("رقم الواتساب غير مضبوط من الإدارة"); return; }
     const ou = other.value.trim(), locUrl = /^https?:\/\//i.test(ou) ? ou : (loc || "");
-    if (lm === "required" && !locUrl) { toast("يرجى مشاركة موقعك أو لصق رابط الموقع"); return; }
+    if (lm === "required" && !locUrl && !pickup.checked) { toast("يرجى مشاركة موقعك أو لصق رابط الموقع"); return; }
     const win = window.open("", "_blank");
     btn.disabled = true; btn.textContent = "جارٍ الإرسال...";
-    const fee = Number(S.deliveryFee) || 0, total = subtotal() + fee;
+    const fee = feeFor(subtotal(), pickup.checked), total = subtotal() + fee;
     const order = {
-      customerName: name.value.trim(), locationUrl: locUrl, phone: digits, address: addr.value.trim(), notes: note.value.trim(),
-      items: cart.map(i => ({ name: i.name, size: i.size, flavor: i.flavor, qty: i.qty, unitPrice: i.unit, price: i.unit * i.qty })),
+      customerName: name.value.trim(), locationUrl: locUrl, phone: digits, address: pickup.checked ? "استلام من المحل" : addr.value.trim(), pickup: pickup.checked, gift: gift.checked ? { name: gName.value.trim(), message: gMsg.value.trim() } : null, notes: note.value.trim(),
+      items: cart.map(i => ({ name: i.name, size: i.size, flavor: i.flavor, note: i.note || "", qty: i.qty, unitPrice: i.unit, price: i.unit * i.qty })),
       subtotal: subtotal(), deliveryFee: fee, total, status: "new", createdAt: serverTimestamp()
     };
     let saved2 = true;
     try { await addDoc(collection(db, "orders"), order); } catch (err) { saved2 = false; console.error(err); }
     ls.set("cust", { name: order.customerName, phone: digits, address: order.address });
-    const lines = [(S.msgPrefix || "🛍️ *طلب جديد*"), `👤 ${order.customerName}`, `📞 ${digits}`, `📍 ${order.address}`, "", ...order.items.map(i => `• ${i.qty}x ${i.name}${i.size ? " (" + i.size + ")" : ""}${i.flavor ? " - " + i.flavor : ""} = ${i.price} ر.س`), "", `التوصيل: ${fee} ر.س`, `*الإجمالي: ${total} ر.س*`];
+    const lines = [(S.msgPrefix || "🛍️ *طلب جديد*"), `👤 ${order.customerName}`, `📞 ${digits}`, `📍 ${order.address}`, "", ...order.items.map(i => `• ${i.qty}x ${i.name}${i.size ? " (" + i.size + ")" : ""}${i.flavor ? " - " + i.flavor : ""}${i.note ? " 📝" + i.note : ""} = ${i.price} ر.س`), "", `التوصيل: ${fee} ر.س`, `*الإجمالي: ${total} ر.س*`];
     if (order.notes) lines.push("", "📝 " + order.notes);
     if (locUrl) lines.push("", "🗺️ الموقع: " + locUrl);
+    if (gift.checked) lines.push("", "🎁 هدية إلى: " + gName.value.trim(), "💌 " + gMsg.value.trim());
     const url = `https://wa.me/${wa}?text=${encodeURIComponent(lines.join("\n"))}`;
     cart = []; saveCart();
     if (win && !win.closed) win.location.href = url; else setTimeout(() => { location.href = url; }, 700);
