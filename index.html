@@ -116,6 +116,18 @@ body.hasbg{background:transparent}
 .sug button:hover{background:var(--soft)}
 .sk{height:150px;border-radius:var(--r);background:linear-gradient(90deg,var(--soft),var(--card),var(--soft));background-size:200% 100%;animation:sk 1.2s infinite}
 @keyframes sk{to{background-position:-200% 0}}
+/* تتبع الطلب */
+.tl{display:flex;margin:18px 0}
+.tl .s{flex:1;text-align:center;font-size:.68rem;color:var(--muted);position:relative}
+.tl .s i{display:grid;place-items:center;width:34px;height:34px;margin:0 auto 4px;border-radius:50%;background:var(--soft);font-style:normal;position:relative;z-index:1}
+.tl .s::before{content:"";position:absolute;top:17px;left:50%;width:100%;height:3px;background:var(--line)}
+.tl .s:first-child::before{display:none}
+.tl .s.on{color:var(--accent);font-weight:700}
+.tl .s.on i{background:var(--accent);color:#fff}
+.tl .s.on::before{background:var(--accent)}
+.tl .s.cur i{animation:pl 1.4s infinite}
+@keyframes pl{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 25%,transparent)}}
+.stbox{background:var(--soft);border-radius:16px;padding:14px;text-align:center;font-weight:700;font-size:1.1rem;color:var(--accent)}
 </style>
 </head>
 <body>
@@ -182,6 +194,7 @@ const $ = id => document.getElementById(id);
 const NO_IMG = "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="#e4dce8"/><text x="60" y="66" font-size="13" text-anchor="middle" fill="#8a7d92" font-family="sans-serif">بدون صورة</text></svg>');
 
 let S = {}, cats = [], prods = [], cart = [], selCat = "", selSub = "", term = "", bgList = [], view = "home";
+let _cu = null, _ctab = "new", _cfirst = true;
 
 /* أدوات */
 function el(tag, props = {}, ...kids) {
@@ -380,24 +393,43 @@ function openSettings() {
 }
 const ST = [["buying", "🛒 جاري الشراء"], ["bought", "✅ تم الشراء"], ["delivering", "🚚 في الطريق"], ["done", "🏁 تم التسليم"]];
 const ST_ALL = { new: "🆕 تم استلام الطلب", preparing: "قيد التجهيز", cancelled: "ملغي", ...Object.fromEntries(ST) };
+
+/* تتبع الطلب (للعميل) */
+const STEPS = [["new", "🆕", "استلمنا طلبك"], ["buying", "🛒", "نجهّزه"], ["bought", "✅", "تم الشراء"], ["delivering", "🚚", "في الطريق"], ["done", "🏁", "وصل"]];
+const MSG = { new: "وصلنا طلبك وننتظر تأكيده 🌹", buying: "جاري تجهيز طلبك", preparing: "جاري تجهيز طلبك", bought: "تم شراء طلبك وسيخرج قريباً", delivering: "مندوبنا في الطريق إليك 🚚", done: "وصل طلبك، بالعافية 🎉", cancelled: "تم إلغاء الطلب" };
+function trackView(id) {
+  const ref = doc(db, "orders", id), box = el("div", { text: "جارٍ التحميل..." });
+  const draw = o => {
+    const st = o.status === "preparing" ? "buying" : o.status, idx = STEPS.findIndex(s => s[0] === st);
+    const n = [el("h2", { text: "📍 تتبع طلبك" }), el("div", { class: "stbox", text: MSG[o.status] || ST_ALL[o.status] || o.status })];
+    if (o.status !== "cancelled") n.push(el("div", { class: "tl" }, ...STEPS.map(([k, ic, t], i) => el("div", { class: "s" + (i <= idx ? " on" : "") + (i === idx && k !== "done" ? " cur" : "") }, el("i", { text: ic }), t))));
+    if (o.courier) n.push(el("p", { text: "🚚 المندوب: " + o.courier }));
+    n.push(...(o.items || []).map(i => el("div", { class: "row" }, el("span", { text: `${i.qty}x ${i.name}${i.size ? " (" + i.size + ")" : ""}` }), el("b", { text: money(i.price) }))),
+      el("div", { class: "row tot" }, el("span", { text: "الإجمالي" }), el("span", { text: money(o.total || 0) })));
+    const w = String(S.whatsapp || "").replace(/\D/g, "");
+    if (w) n.push(el("a", { href: `https://wa.me/${w}?text=${encodeURIComponent("بخصوص طلبي رقم " + id.slice(0, 6))}`, target: "_blank", rel: "noopener", text: "💬 تواصل مع المتجر", style: "display:block;text-align:center;padding:10px;border-radius:12px;border:1px solid var(--line);text-decoration:none;color:inherit;margin-top:10px" }));
+    if (o.status === "done") n.push(el("label", { text: o.rating ? "تقييمك: " + "⭐".repeat(o.rating) : "قيّم المندوب" }),
+      ...(o.rating ? [] : [el("div", { class: "opts" }, ...[1, 2, 3, 4, 5].map(k => el("button", { text: "⭐".repeat(k), onclick: () => updateDoc(ref, { rating: k }).then(() => toast("شكراً 🌹")).catch(() => toast("تعذر الحفظ")) })))]),
+      el("button", { class: "pri", text: "🔁 أعد الطلب", style: "width:100%;margin-top:8px", onclick: () => reorder(o) }));
+    n.push(el("button", { text: "إغلاق", style: "width:100%;margin-top:10px", onclick: close }));
+    box.replaceChildren(...n);
+  };
+  open([box]);
+  window._unsub = onSnapshot(ref, s => s.exists() ? draw(s.data()) : (box.textContent = "الطلب غير موجود"), () => box.textContent = "تعذر فتح الطلب");
+}
+
 async function orderView(kind, id) {
+  if (kind === "o") return trackView(id);
   const ref = doc(db, "orders", id); let o;
   try { o = (await getDoc(ref)).data(); } catch { toast("تعذر فتح الطلب"); return; }
   if (!o) { toast("الطلب غير موجود"); return; }
   const stEl = el("b", { text: ST_ALL[o.status] || o.status, style: "color:var(--accent);font-size:1.1rem" });
-  const nodes = [el("h2", { text: kind === "d" ? "📦 طلب للتوصيل" : "📍 تتبع طلبك" }), el("p", {}, "الحالة: ", stEl),
+  const nodes = [el("h2", { text: "📦 طلب للتوصيل" }), el("p", {}, "الحالة: ", stEl),
     ...(o.items || []).map(i => el("div", { class: "row" }, el("span", { text: `${i.qty}x ${i.name}${i.size ? " (" + i.size + ")" : ""}${i.flavor ? " - " + i.flavor : ""}${i.note ? " 📝 " + i.note : ""}` }), el("b", { text: money(i.price) }))),
     el("div", { class: "row tot" }, el("span", { text: "الإجمالي" }), el("span", { text: money(o.total || 0) }))];
-  if (kind === "o") {
-    if (o.courier) nodes.push(el("p", { text: `🚚 المندوب: ${o.courier}` }));
-    if (o.status === "done") nodes.push(el("label", { text: o.rating ? `تقييمك للمندوب: ${"⭐".repeat(o.rating)}` : "قيّم المندوب" }), ...(o.rating ? [] : [el("div", { class: "opts" }, ...[1, 2, 3, 4, 5].map(n => el("button", { text: "⭐".repeat(n), onclick: async () => { try { await updateDoc(ref, { rating: n }); toast("شكراً لتقييمك 🌹"); orderView("o", id); } catch { toast("تعذر الحفظ"); } } })))]));
-    window._unsub?.(); window._unsub = onSnapshot(ref, s => { const x = s.data(); if (!x) return; stEl.textContent = ST_ALL[x.status] || x.status; if (x.status === "done" && o.status !== "done") orderView("o", id); });
-  }
-  if (kind === "d") {
-    nodes.push(el("p", { text: `👤 ${o.customerName} — 📞 ${o.phone}` }), el("p", { text: "📍 " + o.address }));
-    if (o.locationUrl) nodes.push(el("a", { href: o.locationUrl, target: "_blank", rel: "noopener", text: "🗺️ فتح موقع العميل", style: "display:block;text-align:center;padding:10px;border-radius:12px;color:#fff;background:var(--accent);text-decoration:none;margin:8px 0" }));
-    nodes.push(el("div", { class: "opts" }, ...ST.map(([k, t]) => el("button", { text: t, onclick: async () => { try { await updateDoc(ref, { status: k }); stEl.textContent = ST_ALL[k]; toast("تم تحديث الحالة ✓"); } catch { toast("تعذر التحديث"); } } }))));
-  }
+  nodes.push(el("p", { text: `👤 ${o.customerName} — 📞 ${o.phone}` }), el("p", { text: "📍 " + o.address }));
+  if (o.locationUrl) nodes.push(el("a", { href: o.locationUrl, target: "_blank", rel: "noopener", text: "🗺️ فتح موقع العميل", style: "display:block;text-align:center;padding:10px;border-radius:12px;color:#fff;background:var(--accent);text-decoration:none;margin:8px 0" }));
+  nodes.push(el("div", { class: "opts" }, ...ST.map(([k, t]) => el("button", { text: t, onclick: async () => { try { await updateDoc(ref, { status: k }); stEl.textContent = ST_ALL[k]; toast("تم تحديث الحالة ✓"); } catch { toast("تعذر التحديث"); } } }))));
   nodes.push(el("button", { text: "إغلاق", style: "width:100%;margin-top:12px", onclick: close }));
   open(nodes);
 }
@@ -453,6 +485,17 @@ function profileSetup(after) {
       const data = { name: n.value.trim(), phone: ph, gender: g, email: me.email || "", favs: [], settings: {}, createdAt: serverTimestamp() };
       try { await setDoc(doc(db, "customers", me.id), data); me = { id: me.id, ...data }; applyMe(); toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (after) after(); } catch (e) { toast("تعذر الحفظ: " + e.message); } } })]);
 }
+
+/* تسجيل الدخول بقوقل */
+const inApp = /FBAN|FBAV|Instagram|Snapchat|Line\/|WhatsApp|TikTok/i.test(navigator.userAgent);
+async function googleLogin(after) {
+  if (inApp) { toast("افتح الرابط في كروم أو سفاري لتسجيل قوقل"); return; }
+  try {
+    const r = await signInWithPopup(auth, new GoogleAuthProvider());
+    await syncMe(r.user);
+    if (me?.new) profileSetup(after); else { toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (after) after(); }
+  } catch (e) { toast(e.code === "auth/popup-closed-by-user" ? "أُلغي التسجيل" : "تعذر: " + e.code); }
+}
 function authSheet(after) {
   if (me?.new) return profileSetup(after);
   const e1 = el("input", { type: "email", dir: "ltr", placeholder: "البريد الإلكتروني" }), p1 = el("input", { type: "password", dir: "ltr", placeholder: "كلمة المرور" });
@@ -461,7 +504,7 @@ function authSheet(after) {
   open([el("h2", { text: G("حيّاك الله 🌹", "حيّاكِ الله 🌹") }), el("p", { text: G("سجّل دخولك لتكمل طلبك وتتابعه بسهولة", "سجّلي دخولك لتكملي طلبك وتتابعيه بسهولة"), style: "color:var(--muted)" }), e1, el("div", { style: "height:8px" }), p1,
     el("button", { class: "pri", text: "دخول", style: "width:100%;margin-top:12px", onclick: run(() => signInWithEmailAndPassword(auth, e1.value.trim(), p1.value)) }),
     el("button", { text: "حساب جديد", style: "width:100%;margin-top:8px", onclick: run(() => createUserWithEmailAndPassword(auth, e1.value.trim(), p1.value)) }),
-    el("button", { text: "🔵 المتابعة بحساب قوقل", style: "width:100%;margin-top:8px", onclick: run(() => signInWithPopup(auth, new GoogleAuthProvider())) }),
+    el("button", { text: "🔵 المتابعة بحساب قوقل", style: "width:100%;margin-top:8px", onclick: () => googleLogin(after) }),
     el("button", { text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
 }
 async function openProfile() {
@@ -528,24 +571,47 @@ const capp = initApp2(app.options, "courier"), cauth = getAuth(capp), cdb = getF
 let cname = "";
 const toEmail = u => u.includes("@") ? u : "u" + [...u].map(c => c.codePointAt(0).toString(16)).join("-") + "@staff.local";
 const unemail = e => e.startsWith("u") && e.endsWith("@staff.local") ? String.fromCodePoint(...e.slice(1, -12).split("-").map(h => parseInt(h, 16))) : e;
+
+/* صفحة المندوب: تحديث لحظي + تبويبات */
 function courierPage() {
   if (!cauth.currentUser) { const u = el("input", { placeholder: "اسم المستخدم" }), p = el("input", { type: "password", placeholder: "كلمة المرور" });
     open([el("h2", { text: "🚚 دخول المندوب" }), u, el("div", { style: "height:8px" }), p, el("button", { class: "pri", text: "دخول", style: "width:100%;margin-top:12px", onclick: async () => { try { await signInWithEmailAndPassword(cauth, toEmail(u.value.trim()), p.value); courierPage(); } catch { toast("بيانات الدخول غير صحيحة"); } } })]); return; }
   cname = unemail(cauth.currentUser.email);
-  (async () => { try { const s = await getDocs(query(collection(cdb, "orders"), orderBy("createdAt", "desc"), limit(40))); const l = s.docs.filter(d => !["done", "cancelled"].includes(d.data().status));
-    open([el("h2", { text: `🚚 أهلاً ${cname}` }), ...(l.length ? l.map(courierCard) : [el("p", { text: "لا توجد طلبات نشطة" })]), el("button", { text: "تحديث", style: "width:100%;margin-top:8px", onclick: courierPage }), el("button", { text: "خروج", style: "width:100%;margin-top:8px", onclick: () => signOut(cauth).then(courierPage) })]); } catch { toast("تعذر تحميل الطلبات"); } })();
+  const tabs = el("div", { class: "opts", style: "margin:10px 0" }), list = el("div"); let all = [];
+  const draw = () => {
+    const act = all.filter(d => !["done", "cancelled"].includes(d.data().status)),
+      sets = { new: act.filter(d => !d.data().courier), mine: act.filter(d => d.data().courier === cname), done: all.filter(d => d.data().courier === cname && d.data().status === "done") };
+    tabs.replaceChildren(...[["new", "🆕 جديدة"], ["mine", "🚚 طلباتي"], ["done", "🏁 منتهية"]].map(([k, t]) => el("button", { class: "opt" + (_ctab === k ? " on" : ""), text: `${t} (${sets[k].length})`, onclick: () => { _ctab = k; draw(); } })));
+    list.replaceChildren(...(sets[_ctab].length ? sets[_ctab].map(courierCard) : [el("p", { class: "empty", text: "لا توجد طلبات هنا" })]));
+  };
+  open([el("h2", { text: `🚚 أهلاً ${cname}` }), tabs, list, el("button", { text: "خروج", style: "width:100%;margin-top:8px", onclick: () => { close(); signOut(cauth); } })]);
+  _cfirst = true; _cu?.();
+  _cu = onSnapshot(query(collection(cdb, "orders"), orderBy("createdAt", "desc"), limit(60)), s => {
+    if (!_cfirst && s.docChanges().some(c => c.type === "added")) { toast("🔔 طلب جديد!"); navigator.vibrate?.(300); }
+    _cfirst = false; all = s.docs; draw();
+  }, () => toast("تعذر تحميل الطلبات"));
 }
 function courierCard(d) {
-  const o = d.data(), mine = o.courier === cname, other = o.courier && !mine;
+  const o = d.data(), mine = o.courier === cname, keys = ST.map(x => x[0]), ci = keys.indexOf(o.status), nx = ST[ci + 1];
   const items = el("div", { class: "grid", style: "--cols:4;margin-top:8px" }, ...(o.items || []).map(i => { const p = prods.find(x => x.id === i.pid);
     return el("div", { class: "pc", style: "cursor:default" }, img(i.image || p?.images?.[0]), el("div", { class: "b" }, el("p", { class: "n", text: `${i.qty}x ${i.name}` }), el("div", { class: "c", text: [i.size, i.flavor, i.note].filter(Boolean).join(" • ") }), p?.loc?.big ? el("button", { class: "small", text: "📍 مكانه", onclick: () => locSheet(p) }) : null)); }));
   const btns = el("div", { class: "opts", style: "margin-top:8px" });
+  const lnk = (h, t, x = {}) => el("a", { href: h, text: t, ...x, style: "text-decoration:none;padding:9px 14px;border:1px solid var(--line);border-radius:12px;color:inherit" });
   if (!o.courier) btns.append(el("button", { class: "pri", text: "✋ أخذ الطلب", onclick: () => takeOrder(d.id) }));
-  else if (other) btns.append(el("small", { text: `✅ تم استلام الطلب من المندوب ${o.courier}` }));
-  else btns.append(el("a", { href: `tel:${o.phone}`, text: "📞 تواصل مع العميل", style: "text-decoration:none;padding:10px 14px;border:1px solid var(--line);border-radius:12px" }), ...ST.map(([k, t]) => el("button", { text: t, onclick: async () => { try { await updateDoc(d.ref, { status: k }); toast("تم التحديث ✓"); } catch { toast("تعذر التحديث"); } } })));
-  return el("div", { style: `border:1px solid var(--line);border-radius:16px;padding:10px;margin-bottom:12px;opacity:${other ? .45 : 1}` }, el("b", { text: `${o.customerName} — ${o.address || ""}` }), items, btns, o.locationUrl && !other ? el("a", { href: o.locationUrl, target: "_blank", rel: "noopener", text: "🗺️ موقع العميل", style: "display:block;margin-top:6px" }) : null);
+  else if (mine) {
+    btns.append(lnk(`tel:${o.phone}`, "📞 اتصال"));
+    if (o.locationUrl) btns.append(lnk(o.locationUrl, "🧭 توجيه", { target: "_blank", rel: "noopener" }));
+    btns.append(el("button", { text: "📋 نسخ العنوان", onclick: () => navigator.clipboard?.writeText(o.address || "").then(() => toast("تم النسخ")) }));
+    if (nx) btns.append(el("button", { class: "pri", style: "width:100%", text: "التالي ← " + nx[1], onclick: async () => { try { await updateDoc(d.ref, { status: nx[0] }); toast("تم التحديث ✓"); } catch { toast("تعذر التحديث"); } } }));
+    else if (o.status === "new" || o.status === "preparing") btns.append(el("button", { class: "pri", style: "width:100%", text: "التالي ← " + ST[0][1], onclick: async () => { try { await updateDoc(d.ref, { status: ST[0][0] }); toast("تم التحديث ✓"); } catch { toast("تعذر التحديث"); } } }));
+  } else btns.append(el("small", { text: `✅ مع المندوب ${o.courier}` }));
+  return el("div", { style: `border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px;opacity:${(o.courier && !mine) ? .5 : 1}` },
+    el("div", { class: "row" }, el("b", { text: o.customerName }), el("span", { text: ST_ALL[o.status] || o.status, style: "color:var(--accent);font-weight:700" })),
+    el("small", { text: "📍 " + (o.address || "") }), o.notes ? el("small", { text: "📝 " + o.notes, style: "display:block" }) : null,
+    o.gift ? el("small", { text: "🎁 هدية إلى " + o.gift.name, style: "display:block" }) : null,
+    items, el("div", { class: "row tot" }, el("span", { text: "💰 المطلوب تحصيله" }), el("span", { text: money(o.total || 0) })), btns);
 }
-async function takeOrder(id) { const ref = doc(cdb, "orders", id), o = (await getDoc(ref)).data(); if (o.courier && o.courier !== cname) { toast("تم استلام الطلب من مندوب آخر"); courierPage(); return; } await updateDoc(ref, { courier: cname, status: "buying" }); toast("تم أخذ الطلب ✓"); courierPage(); }
+async function takeOrder(id) { const ref = doc(cdb, "orders", id), o = (await getDoc(ref)).data(); if (o.courier && o.courier !== cname) { toast("تم استلام الطلب من مندوب آخر"); return; } await updateDoc(ref, { courier: cname, status: "buying" }); toast("تم أخذ الطلب ✓"); _ctab = "mine"; }
 const vipDisc = sub => me?.vipPct ? Math.round(sub * me.vipPct) / 100 : 0;
 function reorder(o) {
   let n = 0;
@@ -579,7 +645,7 @@ function startLive() {
 const feeFor = (sub, pick, d) => pick ? 0 : (Number(S.freeFrom) > 0 && sub >= Number(S.freeFrom)) ? 0 : d ? (Number(lines2(S.districts).map(l => l.split("|")).find(a => a[0].trim() === d)?.[1]) || Number(S.deliveryFee) || 0) : Number(S.deliveryFee) || 0;
 /* النوافذ */
 const open = (nodes, drawer = false) => { $("ov").className = "ov" + (drawer ? " drawer" : ""); $("ov").style.backgroundImage = ""; $("sheet").style.minHeight = ""; $("sheet").replaceChildren(...nodes); $("ov").hidden = false; };
-const close = () => { $("ov").hidden = true; $("sheet").replaceChildren(); window._unsub?.(); window._unsub = null; };
+const close = () => { $("ov").hidden = true; $("sheet").replaceChildren(); window._unsub?.(); window._unsub = null; _cu?.(); _cu = null; };
 $("ov").onclick = e => { if (e.target.id === "ov") close(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
 
@@ -677,8 +743,12 @@ function openCheckout() {
       () => { locBtn.textContent = "📍 مشاركة موقعي الحالي"; toast("تعذر التحديد، فعّل الصلاحية أو الصق رابطاً"); }, { enableHighAccuracy: true, timeout: 12000 });
   } });
   const locBox = lm === "off" ? null : el("div", { class: "loc" }, el("b", { text: "📍 موقع التوصيل" }), el("div", { style: "display:flex;flex-direction:column;gap:8px;margin-top:8px" }, locBtn, other), locInfo);
+  const gBanner = me ? null : el("div", { class: "loc" },
+    el("b", { text: "⚡ أسرع بحساب قوقل" }),
+    el("small", { text: "تُعبّأ بياناتك تلقائياً وتتابع طلبك بسهولة" }),
+    el("button", { type: "button", class: "pri", text: "🔵 المتابعة بقوقل", style: "width:100%;margin-top:8px", onclick: () => googleLogin(openCheckout) }));
   const btn = el("button", { class: "pri", type: "submit", style: "width:100%;margin-top:14px", text: "تأكيد وإرسال الطلب" });
-  const form = el("form", {}, el("h2", { text: "بيانات التوصيل" }), el("label", { text: "الاسم" }), name, el("label", { text: "رقم الجوال" }), phone, el("label", { text: "العنوان" }), dsel, addr, el("label", { text: "ملاحظات" }), note, opts, locBox, btn,
+  const form = el("form", {}, el("h2", { text: "بيانات التوصيل" }), gBanner, el("label", { text: "الاسم" }), name, el("label", { text: "رقم الجوال" }), phone, el("label", { text: "العنوان" }), dsel, addr, el("label", { text: "ملاحظات" }), note, opts, locBox, btn,
     el("button", { type: "button", text: "رجوع للسلة", style: "width:100%;margin-top:8px", onclick: openCart }));
   form.onsubmit = async e => {
     e.preventDefault();
@@ -694,7 +764,7 @@ function openCheckout() {
     if (dsel && !pickup.checked && !dsel.value) { toast(G("اختر الحي", "اختاري الحي")); btn.disabled = false; btn.textContent = "تأكيد وإرسال الطلب"; return; }
     const vd = vipDisc(subtotal()), fee = feeFor(subtotal(), pickup.checked, dsel?.value), total = subtotal() - vd + fee;
     const order = {
-      customerName: name.value.trim(), locationUrl: locUrl, phone: digits, address: pickup.checked ? "استلام من المحل" : (dsel?.value ? "حي " + dsel.value + " — " : "") + addr.value.trim(), pickup: pickup.checked, pickupSlot: pickup.checked ? pslot.value : "", gift: gift.checked ? { name: gName.value.trim(), message: gMsg.value.trim() } : null, notes: note.value.trim(),
+      customerName: name.value.trim(), locationUrl: locUrl, phone: digits, uid: me?.id || "", address: pickup.checked ? "استلام من المحل" : (dsel?.value ? "حي " + dsel.value + " — " : "") + addr.value.trim(), pickup: pickup.checked, pickupSlot: pickup.checked ? pslot.value : "", gift: gift.checked ? { name: gName.value.trim(), message: gMsg.value.trim() } : null, notes: note.value.trim(),
       items: cart.map(i => ({ pid: i.id, image: i.image, name: i.name, size: i.size, flavor: i.flavor, note: i.note || "", qty: i.qty, unitPrice: i.unit, price: i.unit * i.qty })),
       subtotal: subtotal(), discount: vd, deliveryFee: fee, total, status: "new", createdAt: serverTimestamp()
     };
@@ -718,7 +788,7 @@ function openCheckout() {
       } catch (e) { console.error(e); }
     }
     cart = []; saveCart();
-    open([el("h2", { text: saved2 ? "✅ تم استلام طلبك" : "⚠️ أُرسل الطلب عبر الواتساب" }), el("p", { text: saved2 ? "شكراً لك! سنتواصل معك قريباً لتأكيد الطلب." : "تعذر حفظ الطلب في النظام، يرجى التأكد من وصول رسالة الواتساب." }), ...(track ? [el("a", { href: track, style: "display:block;text-align:center;padding:10px;border-radius:12px;color:#fff;background:var(--accent);margin-bottom:8px;text-decoration:none", text: "📍 تتبع حالة طلبك" })] : []), el("button", { class: "pri", text: "حسناً", onclick: close })]);
+    open([el("h2", { text: saved2 ? "✅ تم استلام طلبك" : "⚠️ تعذر حفظ طلبك" }), el("p", { text: saved2 ? "شكراً لك! سنتواصل معك قريباً لتأكيد الطلب." : "تعذر حفظ الطلب في النظام، تواصل مع المتجر للتأكد من وصوله." }), ...(oid ? [el("button", { class: "pri", style: "width:100%;margin-bottom:8px", text: "📍 تتبع حالة طلبك", onclick: () => trackView(oid) })] : []), el("button", { text: "حسناً", style: "width:100%", onclick: close })]);
   };
   open([form], true);
 }
