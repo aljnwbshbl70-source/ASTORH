@@ -245,6 +245,8 @@ function deliveryState() {
 }
 
 /* التحميل */
+let BOT = {};
+getDoc(doc(db, "botInfo", "status")).then(x => { BOT = x.data() || {}; }).catch(() => {});
 async function init() {
   $("list").append(...Array.from({ length: 6 }, () => el("div", { class: "sk" })));
   try {
@@ -406,6 +408,8 @@ function trackView(id) {
     if (o.courier) n.push(el("p", { text: "🚚 المندوب: " + o.courier }));
     n.push(...(o.items || []).map(i => el("div", { class: "row" }, el("span", { text: `${i.qty}x ${i.name}${i.size ? " (" + i.size + ")" : ""}` }), el("b", { text: money(i.price) }))),
       el("div", { class: "row tot" }, el("span", { text: "الإجمالي" }), el("span", { text: money(o.total || 0) })));
+    const bn = botNumber();
+    if (bn && o.status !== "cancelled") n.push(el("a", { href: `https://wa.me/${bn}?text=${encodeURIComponent("متابعة طلبي 🔎\nرقم الطلب: " + id + "\n\nاضغط إرسال لمتابعة طلبك 👇")}`, target: "_blank", rel: "noopener", text: o.waTrack ? "✅ المتابعة عبر واتساب مفعّلة" : "💬 متابعة الطلب عبر واتساب", style: "display:block;text-align:center;padding:12px;border-radius:12px;background:#25d366;color:#fff;font-weight:700;text-decoration:none;margin-top:10px" }));
     const w = String(S.whatsapp || "").replace(/\D/g, "");
     if (w) n.push(el("a", { href: `https://wa.me/${w}?text=${encodeURIComponent("بخصوص طلبي رقم " + id.slice(0, 6))}`, target: "_blank", rel: "noopener", text: "💬 تواصل مع المتجر", style: "display:block;text-align:center;padding:10px;border-radius:12px;border:1px solid var(--line);text-decoration:none;color:inherit;margin-top:10px" }));
     if (o.status === "done") n.push(el("label", { text: o.rating ? "تقييمك: " + "⭐".repeat(o.rating) : "قيّم المندوب" }),
@@ -477,13 +481,50 @@ function applyMe() {
   $("heroT").textContent = me.gender === "m" ? `أهلاً بك يا ${me.name} 👋` : `أهلاً بكِ يا ${me.name} 🌸`;
 }
 async function saveMe(patch) { Object.assign(me, patch); try { await updateDoc(doc(db, "customers", me.id), patch); } catch {} }
+/* ===== توثيق الرقم عبر واتساب ===== */
+const normPh = v => { let d = String(v || "").replace(/[٠-٩]/g, c => "٠١٢٣٤٥٦٧٨٩".indexOf(c)).replace(/\D/g, ""); if (!d) return ""; if (d.startsWith("00")) d = d.slice(2); else if (d.startsWith("0")) d = "966" + d.slice(1); else if (d.length === 9 && d[0] === "5") d = "966" + d; if (d.startsWith("9660")) d = "966" + d.slice(4); return d; };
+const isVerified = () => !!(me && !me.new && me.phoneVerified && me.verifiedPhone && me.verifiedPhone === normPh(me.phone));
+const needVerify = () => S.requireVerified !== false;
+const botNumber = () => { const l = BOT.numbers || []; return l.includes(BOT.main) ? BOT.main : (l[0] || BOT.main || ""); };
+function openVerify(after) {
+  if (!me || me.new) return authSheet(() => openVerify(after));
+  if (isVerified()) { if (after) after(); return; }
+  const ref = doc(db, "verifyRequests", me.id), unsubs = []; let waiting = false;
+  const ph = el("input", { type: "tel", dir: "ltr", inputmode: "tel", placeholder: "05XXXXXXXX", value: me.phone || "" });
+  const msg = el("p", { style: "color:var(--muted);min-height:1.5em;margin:10px 0 0" });
+  const go = el("button", { class: "pri", style: "width:100%;margin-top:12px", text: "📲 تأكيد الرقم عبر واتساب" });
+  const wa = el("a", { hidden: "", target: "_blank", rel: "noopener", text: "🟢 افتح واتساب ثم اضغط إرسال", style: "display:block;text-align:center;padding:12px;border-radius:12px;background:#25d366;color:#fff;font-weight:700;text-decoration:none;margin-top:12px" });
+  const ERR = { invalid_phone: "رقم الجوال غير صحيح، تأكد منه", bot_offline: "خدمة التأكيد غير متاحة حالياً، حاول بعد قليل", rate_limited: "انتظر ثواني ثم حاول مرة أخرى", expired: "انتهت صلاحية الكود، اطلب كوداً جديداً" };
+  const stop = () => { unsubs.forEach(u => u()); unsubs.length = 0; window._unsub = null; };
+  window._unsub = stop;
+  unsubs.push(onSnapshot(doc(db, "customers", me.id), s => { const d = s.data(); if (d?.phoneVerified && d.verifiedPhone && d.verifiedPhone === normPh(d.phone)) { me = { ...me, ...d }; stop(); toast("✅ تم تأكيد رقمك"); close(); if (after) after(); } }, () => {}));
+  unsubs.push(onSnapshot(ref, s => {
+    const d = s.data(); if (!d || !waiting) return;
+    if (d.status === "pending" && d.waLink) {
+      wa.href = d.waLink; wa.hidden = false; go.disabled = false; go.textContent = "🔄 كود جديد";
+      msg.textContent = d.lastError === "mismatch" ? "⚠️ الرقم الذي أرسلت منه لا يطابق الرقم المكتوب. صحّح الرقم أو أرسل من رقمك." : "اضغط الزر الأخضر ثم أرسل الرسالة الجاهزة كما هي، وسيظهر التأكيد هنا تلقائياً.";
+    } else if (ERR[d.status]) { msg.textContent = "⚠️ " + ERR[d.status]; go.disabled = false; }
+  }, () => {}));
+  go.onclick = async () => {
+    const v = normPh(ph.value); if (v.length < 11) { toast("تأكد من رقم الجوال"); return; }
+    go.disabled = true; wa.hidden = true; waiting = true; msg.textContent = "جارٍ تجهيز الكود...";
+    try {
+      if (v !== normPh(me.phone)) await saveMe({ phone: ph.value.replace(/\D/g, "") });
+      await setDoc(ref, { phone: ph.value.replace(/\D/g, ""), status: "requested", requestedAt: serverTimestamp() }, { merge: true });
+      setTimeout(() => { if (!wa.href && waiting) { msg.textContent = "⚠️ الخدمة لا تستجيب الآن، حاول بعد قليل"; go.disabled = false; } }, 15000);
+    } catch (e) { msg.textContent = "تعذر الطلب: " + (e.code || e.message); go.disabled = false; }
+  };
+  open([el("h2", { text: "📲 تأكيد رقم جوالك" }), el("p", { text: "نتأكد من رقمك عبر واتساب لنضمن وصول طلبك وإشعاراتك.", style: "color:var(--muted)" }), el("label", { text: "رقم جوالك" }), ph, msg, go, wa,
+    el("button", { text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
+}
+
 function profileSetup(after) {
   const n = el("input", { value: me.name || "", placeholder: "اسمك الكريم" }), p = el("input", { type: "tel", dir: "ltr", placeholder: "05XXXXXXXX", inputmode: "tel" }); let g = "f";
   const gb = el("div", { class: "opts" }, ...[["f", "👩🏻 أنثى"], ["m", "👨🏻 ذكر"]].map(([k, t]) => el("button", { type: "button", text: t, class: "opt" + (k === g ? " on" : ""), onclick: e => { g = k; window._intro.textContent = k === "f" ? "عرّفينا على نفسك عشان نخدمك بالشكل اللي يليق بكِ" : "عرّفنا على نفسك عشان نخدمك بالشكل اللي يليق بك"; gb.querySelectorAll("button").forEach(b => b.classList.remove("on")); e.target.classList.add("on"); } })));
   open([el("h2", { text: G("حيّاك الله 🌹", "حيّاكِ الله 🌹") }), (window._intro = el("p", { text: G("عرّفنا على نفسك عشان نخدمك بالشكل اللي يليق بك", "عرّفينا على نفسك عشان نخدمك بالشكل اللي يليق بكِ"), style: "color:var(--muted)" })), el("label", { text: "الاسم" }), n, el("label", { text: "رقم جوالك" }), p, el("label", { text: "الجنس" }), gb,
     el("button", { class: "pri", text: "حفظ ومتابعة", style: "width:100%;margin-top:12px", onclick: async () => { const ph = p.value.replace(/\D/g, ""); if (!n.value.trim() || ph.length < 9) { toast(G("تأكد من الاسم والجوال", "تأكدي من الاسم والجوال")); return; }
       const data = { name: n.value.trim(), phone: ph, gender: g, email: me.email || "", favs: [], settings: {}, createdAt: serverTimestamp() };
-      try { await setDoc(doc(db, "customers", me.id), data); me = { id: me.id, ...data }; applyMe(); toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (after) after(); } catch (e) { toast("تعذر الحفظ: " + e.message); } } })]);
+      try { await setDoc(doc(db, "customers", me.id), data); me = { id: me.id, ...data }; applyMe(); toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (needVerify()) openVerify(after); else if (after) after(); } catch (e) { toast("تعذر الحفظ: " + e.message); } } })]);
 }
 
 /* تسجيل الدخول بقوقل */
@@ -517,6 +558,7 @@ async function openProfile() {
     el("label", { text: "الثيم" }), el("div", { class: "opts" }, ...THEMES().map(([n, c]) => el("button", { text: n, style: `border-color:${c};color:${c}`, onclick: () => { setColor(c); ls.set("th", c); upd("th", c); } }))),
     el("label", { text: "حجم الخط والموقع" }), el("div", { class: "opts" }, ...[["صغير", .9], ["عادي", 1], ["كبير", 1.15]].map(([t, z]) => el("button", { text: t, onclick: () => { setZoom(z); upd("zoom", z); } })), el("button", { text: "−", onclick: () => { const z = Math.max(.8, +(zoomNow() - .05).toFixed(2)); setZoom(z); upd("zoom", z); } }), el("button", { text: "+", onclick: () => { const z = Math.min(1.5, +(zoomNow() + .05).toFixed(2)); setZoom(z); upd("zoom", z); } })),
     el("p", { text: "📧 " + (me.email || ""), style: "color:var(--muted)" }),
+    isVerified() ? el("p", { text: "✅ رقمك موثّق: " + me.phone, style: "color:var(--ok);font-weight:600" }) : el("button", { class: "pri", style: "width:100%;margin-top:6px", text: "📲 تأكيد رقمك عبر واتساب", onclick: () => openVerify(openProfile) }),
     el("button", { style: "width:100%;margin-top:10px", text: `❤️ مفضلتي (${(me.favs || []).length})`, onclick: () => { close(); setView("fav"); } }),
     el("label", { text: "ردود المتجر على بلاغاتك واقتراحاتك" }), reps, el("label", { text: "طلباتي" }), ords,
     el("button", { text: "تسجيل الخروج", style: "width:100%;margin-top:10px", onclick: () => signOut(auth).then(() => location.reload()) }), el("button", { class: "pri", text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
@@ -720,6 +762,7 @@ function openCheckout() {
   const saved = me ? { ...ls.get("cust", {}), name: me.name, phone: me.phone || "" } : ls.get("cust", {});
   const name = el("input", { placeholder: "الاسم الكامل", value: saved.name || "", required: true });
   const phone = el("input", { type: "tel", dir: "ltr", placeholder: "05XXXXXXXX", value: saved.phone || "", required: true, inputmode: "tel" });
+  if (isVerified()) { phone.value = me.phone; phone.readOnly = true; }
   const addr = el("textarea", { placeholder: "الحي، الشارع، أقرب معلم", required: true }); addr.value = saved.address || "";
   const note = el("textarea", { placeholder: "ملاحظات إضافية (اختياري)" });
   const dl = lines2(S.districts).map(l => l.split("|")), dsel = dl.length ? el("select", {}, new Option(G("اختر الحي", "اختاري الحي"), ""), ...dl.map(a => new Option(`${a[0].trim()} — ${Number(a[1]) || 0} ر.س`, a[0].trim()))) : null;
@@ -755,11 +798,9 @@ function openCheckout() {
     const digits = phone.value.replace(/\D/g, "");
     if (digits.length < 9) { toast("رقم الجوال غير صحيح"); return; }
     const wa = String(S.whatsapp || "").replace(/\D/g, "");
-    const tg = S.tgToken && S.tgChat;
-    if (!tg) { toast("استقبال الطلبات غير مفعّل حالياً، تواصل مع المتجر"); return; }
+    if (needVerify() && !isVerified()) { toast(G("أكّد رقمك أولاً", "أكّدي رقمك أولاً")); openVerify(openCheckout); return; }
     const ou = other.value.trim(), locUrl = /^https?:\/\//i.test(ou) ? ou : (loc || "");
     if (lm === "required" && !locUrl && !pickup.checked) { toast("يرجى مشاركة موقعك أو لصق رابط الموقع"); return; }
-    const win = tg ? null : window.open("", "_blank");
     btn.disabled = true; btn.textContent = "جارٍ الإرسال...";
     if (dsel && !pickup.checked && !dsel.value) { toast(G("اختر الحي", "اختاري الحي")); btn.disabled = false; btn.textContent = "تأكيد وإرسال الطلب"; return; }
     const vd = vipDisc(subtotal()), fee = feeFor(subtotal(), pickup.checked, dsel?.value), total = subtotal() - vd + fee;
@@ -772,21 +813,7 @@ function openCheckout() {
     let oid = ""; try { oid = (await addDoc(collection(db, "orders"), order)).id; } catch (err) { saved2 = false; console.error(err); }
     try { await addDoc(collection(db, "sold"), { items: cart.map(i => ({ id: i.id, qty: i.qty })), at: serverTimestamp() }); } catch {}
     ls.set("cust", { name: order.customerName, phone: digits, address: order.address });
-    const lines = [(S.msgPrefix || "🛍️ *طلب جديد*"), `👤 ${order.customerName}`, `📞 ${digits}`, `📍 ${order.address}`, "", ...order.items.map(i => `• ${i.qty}x ${i.name}${i.size ? " (" + i.size + ")" : ""}${i.flavor ? " - " + i.flavor : ""}${i.note ? " 📝" + i.note : ""} = ${i.price} ر.س`), "", `التوصيل: ${fee} ر.س`, `*الإجمالي: ${total} ر.س*`];
-    if (order.notes) lines.push("", "📝 " + order.notes);
-    if (locUrl) lines.push("", "🗺️ الموقع: " + locUrl);
-    if (vd) lines.push("", `🌟 خصم عميل مميز: -${vd} ر.س`);
-    if (pickup.checked) lines.push("", "🏬 استلام من المحل — تجهيز فقط", "⏰ الموعد: " + pslot.value);
-    if (gift.checked) lines.push("", "🎁 هدية إلى: " + gName.value.trim(), "💌 " + gMsg.value.trim());
     const base = location.origin + location.pathname, track = oid ? `${base}#o=${oid}` : "";
-    if (tg && oid) {
-      const cUrl = base + "#d=" + oid;
-      try {
-        const api = `https://api.telegram.org/bot${S.tgToken}/sendMessage`, send = b => fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then(r => r.json());
-        const r = await send({ chat_id: S.tgChat, text: lines.join("\n"), reply_markup: { inline_keyboard: [[{ text: "🚚 فتح الطلب ومتابعته", url: cUrl }]] } });
-        if (!r.ok) await send({ chat_id: S.tgChat, text: lines.join("\n") + "\n\n🚚 " + cUrl });
-      } catch (e) { console.error(e); }
-    }
     cart = []; saveCart();
     open([el("h2", { text: saved2 ? "✅ تم استلام طلبك" : "⚠️ تعذر حفظ طلبك" }), el("p", { text: saved2 ? "شكراً لك! سنتواصل معك قريباً لتأكيد الطلب." : "تعذر حفظ الطلب في النظام، تواصل مع المتجر للتأكد من وصوله." }), ...(oid ? [el("button", { class: "pri", style: "width:100%;margin-bottom:8px", text: "📍 تتبع حالة طلبك", onclick: () => trackView(oid) })] : []), el("button", { text: "حسناً", style: "width:100%", onclick: close })]);
   };
