@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://wsrv.nl" crossorigin><link rel="preconnect" href="https://i.ibb.co" crossorigin><link rel="preconnect" href="https://www.gstatic.com" crossorigin><link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js"><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js">
 <title>أسطورة العروس</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -128,6 +130,7 @@ body.hasbg{background:transparent}
 .tl .s.cur i{animation:pl 1.4s infinite}
 @keyframes pl{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 25%,transparent)}}
 .stbox{background:var(--soft);border-radius:16px;padding:14px;text-align:center;font-weight:700;font-size:1.1rem;color:var(--accent)}
+.muted{color:var(--muted);font-size:.9rem;margin:4px 0}
 </style>
 </head>
 <body>
@@ -143,7 +146,7 @@ body.hasbg{background:transparent}
  g("sd").textContent=p(c.dhk&&c.dhk.length?c.dhk:D);
  if(c.logo){g("slogo").src=c.logo;g("slogo").hidden=false;}
  function hide(){var s=g("splash");if(!s)return;s.style.opacity=0;setTimeout(function(){s.remove()},600);}
- setTimeout(hide,3000);g("splash").onclick=hide;
+ var t0=Date.now();window.hideSplash=function(){setTimeout(hide,Math.max(0,1200-(Date.now()-t0)))};setTimeout(hide,4000);g("splash").onclick=hide;
 })();
 </script>
 <header>
@@ -208,7 +211,16 @@ function el(tag, props = {}, ...kids) {
   kids.flat().forEach(c => c != null && e.append(c));
   return e;
 }
-const img = (src, cls = "") => { const i = el("img", { src: src || NO_IMG, alt: "", class: cls, loading: "lazy" }); i.onerror = () => { i.onerror = null; i.src = NO_IMG; }; return i; };
+const fast = (src, w) => `https://wsrv.nl/?url=${encodeURIComponent(src)}&w=${w}&h=${w}&fit=cover&output=webp&q=70`;
+/* صورة سريعة: نسخة مصغّرة WebP من الأصل (w=0 يعطّل التصغير)، وإن تعذّرت يرجع للأصل ثم للصورة البديلة */
+const img = (src, cls = "", w = 300) => {
+  const i = el("img", { alt: "", class: cls, loading: "lazy", decoding: "async" });
+  const proxied = !!(w && src && /^https?:\/\//.test(src)); let step = 0;
+  i.onerror = () => { if (step === 0 && proxied) { step = 1; i.src = src; } else { i.onerror = null; i.src = NO_IMG; i.style.opacity = 1; } };
+  i.style.background = "var(--soft)"; i.style.transition = "opacity .25s"; i.style.opacity = 0; i.onload = () => { i.style.opacity = 1; };
+  i.src = proxied ? fast(src, w) : (src || NO_IMG);
+  return i;
+};
 const money = n => (Math.round(n * 100) / 100) + " ر.س";
 function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2500); }
 const ls = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
@@ -247,27 +259,34 @@ function deliveryState() {
 /* التحميل */
 let BOT = {};
 getDoc(doc(db, "botInfo", "status")).then(x => { BOT = x.data() || {}; }).catch(() => {});
+async function fetchCatalog() {
+  const [sSnap, cSnap, pSnap] = await Promise.all([getDoc(doc(db, "settings", "store")), getDocs(collection(db, "categories")), getDocs(collection(db, "products"))]);
+  const raw = { s: sSnap.data() || {}, c: cSnap.docs.map(d => ({ id: d.id, ...d.data() })), p: pSnap.docs.map(d => ({ id: d.id, ...d.data() })) };
+  try { localStorage.setItem("catalogV1", JSON.stringify(raw)); } catch {}
+  return raw;
+}
+function applyCatalog(raw) {
+  S = raw.s || {};
+  if (S.freeFrom === undefined || S.freeFrom === "") S.freeFrom = 100;
+  cats = raw.c.filter(c => c.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
+  prods = raw.p.filter(p => p.status !== "hidden");
+}
 async function init() {
   $("list").append(...Array.from({ length: 6 }, () => el("div", { class: "sk" })));
-  try {
-    const [sSnap, cSnap, pSnap] = await Promise.all([
-      getDoc(doc(db, "settings", "store")),
-      getDocs(collection(db, "categories")),
-      getDocs(collection(db, "products"))
-    ]);
-    S = sSnap.data() || {};
-    if (S.freeFrom === undefined || S.freeFrom === "") S.freeFrom = 100;
-    cats = cSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
-    prods = pSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.status !== "hidden");
-  } catch (e) {
-    $("list").replaceChildren(el("p", { class: "empty", text: "تعذر تحميل المتجر: " + e.message }));
-    return;
+  let cached = null; try { cached = JSON.parse(localStorage.getItem("catalogV1")); } catch {}
+  let fresh;
+  if (cached?.p?.length) { applyCatalog(cached); fresh = fetchCatalog().catch(() => null); }
+  else {
+    try { applyCatalog(await fetchCatalog()); }
+    catch (e) { $("list").replaceChildren(el("p", { class: "empty", text: "تعذر تحميل المتجر: " + e.message })); return; }
   }
   cart = ls.get("cart", []);
-  await loadMe(); await loadHot();
   applySettings();
   renderChips();
   render();
+  window.hideSplash?.();
+  Promise.all([loadMe(), loadHot()]).then(() => { render(); updateCart(); });
+  if (fresh) fresh.then(r => { if (r && JSON.stringify(r) !== JSON.stringify(cached)) { applyCatalog(r); applySettings(); renderChips(); render(); } });
   try { localStorage.setItem("splashCache", JSON.stringify({ name: S.storeName || "", logo: S.logoUrl || "", wel: lines2(S.welcomeText), dhk: lines2(S.dhikrText) })); } catch {}
   const dm = location.hash.match(/^#p=(.+)$/), dp = dm && prods.find(x => x.id === dm[1]);
   const om = location.hash.match(/^#([od])=(.+)$/);
@@ -275,7 +294,7 @@ async function init() {
   let seen = false; try { seen = sessionStorage.getItem("seen"); } catch {}
   const pop = S.videoMode === "popup" && S.videoUrl;
   startLive();
-  await new Promise(r => setTimeout(r, 3100));
+  await new Promise(r => setTimeout(r, 1400));
   if ((S.notice || pop) && !seen && !dp && !om && location.hash !== "#courier") {
     open([S.notice && el("h2", { text: "📢 تنبيه" }), S.notice && el("p", { text: S.notice, style: "white-space:pre-line;font-size:1.05rem" }), pop && videoEl(), el("button", { class: "pri", style: "width:100%", text: "🛍️ تسوق", onclick: close })].filter(Boolean));
     try { sessionStorage.setItem("seen", "1"); } catch {}
@@ -347,7 +366,22 @@ function render() {
   if (!$("hotWrap").hidden) $("hot").replaceChildren(...hl.map(card));
   if (showFeat) $("feat").replaceChildren(...list.filter(p => p.featured).map(card));
   $("allT").textContent = term ? `نتائج البحث (${list.length})` : ({ offers: "🔥 العروض", new: "✨ جديدنا", fav: "❤️ مفضلتي" }[view] || "كل المنتجات");
-  $("list").replaceChildren(...(list.length ? list.map(card) : [el("p", { class: "empty", text: "لا توجد منتجات مطابقة." })]));
+  const key = [view, selCat, selSub, term, $("sort").value].join("|");
+  if (key !== _listKey) { _listKey = key; _shown = PAGE; }
+  paintList(list);
+}
+/* عرض أول 24 منتجاً فقط، والباقي يُحمَّل عند الاقتراب من آخر القائمة (أخفّ بكثير على الجوال) */
+const PAGE = 24; let _shown = PAGE, _listKey = "", _more = null;
+function paintList(list) {
+  _more?.disconnect();
+  const nodes = list.slice(0, _shown).map(card);
+  if (list.length > _shown) {
+    const more = () => { _shown += PAGE; paintList(list); };
+    const b = el("button", { text: `عرض المزيد (${list.length - _shown})`, style: "grid-column:1/-1;padding:12px", onclick: more });
+    nodes.push(b);
+    if ("IntersectionObserver" in window) { _more = new IntersectionObserver(es => { if (es[0].isIntersecting) more(); }, { rootMargin: "700px" }); _more.observe(b); }
+  }
+  $("list").replaceChildren(...(list.length ? nodes : [el("p", { class: "empty", text: "لا توجد منتجات مطابقة." })]));
 }
 const sug = $("sug"), byName = (a, b) => (a.name || "").localeCompare(b.name || "", "ar");
 function showSug(v) {
@@ -399,22 +433,40 @@ const ST_ALL = { new: "🆕 تم استلام الطلب", preparing: "قيد ا
 /* تتبع الطلب (للعميل) */
 const STEPS = [["new", "🆕", "استلمنا طلبك"], ["buying", "🛒", "نجهّزه"], ["bought", "✅", "تم الشراء"], ["delivering", "🚚", "في الطريق"], ["done", "🏁", "وصل"]];
 const MSG = { new: "وصلنا طلبك وننتظر تأكيده 🌹", buying: "جاري تجهيز طلبك", preparing: "جاري تجهيز طلبك", bought: "تم شراء طلبك وسيخرج قريباً", delivering: "مندوبنا في الطريق إليك 🚚", done: "وصل طلبك، بالعافية 🎉", cancelled: "تم إلغاء الطلب" };
+const agoAr = ms => { const m = Math.max(0, Math.round((Date.now() - ms) / 6e4)); return m < 1 ? "الآن" : m < 60 ? `منذ ${m} دقيقة` : m < 1440 ? `منذ ${Math.floor(m / 60)} ساعة` : `منذ ${Math.floor(m / 1440)} يوم`; };
+const linkBtn = (href, text, bg) => el("a", { href, target: "_blank", rel: "noopener", text, style: `display:block;text-align:center;padding:10px;border-radius:12px;text-decoration:none;margin-top:8px;${bg ? `background:${bg};color:#fff;font-weight:700` : "border:1px solid var(--line);color:inherit"}` });
 function trackView(id) {
   const ref = doc(db, "orders", id), box = el("div", { text: "جارٍ التحميل..." });
+  let lastSt = null;
   const draw = o => {
+    if (lastSt && lastSt !== o.status) { toast(MSG[o.status] || ST_ALL[o.status] || "تحدّثت حالة طلبك"); navigator.vibrate?.(200); }
+    lastSt = o.status;
     const st = o.status === "preparing" ? "buying" : o.status, idx = STEPS.findIndex(s => s[0] === st);
     const n = [el("h2", { text: "📍 تتبع طلبك" }), el("div", { class: "stbox", text: MSG[o.status] || ST_ALL[o.status] || o.status })];
     if (o.status !== "cancelled") n.push(el("div", { class: "tl" }, ...STEPS.map(([k, ic, t], i) => el("div", { class: "s" + (i <= idx ? " on" : "") + (i === idx && k !== "done" ? " cur" : "") }, el("i", { text: ic }), t))));
-    if (o.courier) n.push(el("p", { text: "🚚 المندوب: " + o.courier }));
+    const t0 = (o.createdAt?.seconds || 0) * 1000, closed = ["done", "cancelled"].includes(o.status);
+    if (t0) n.push(el("p", { class: "muted", text: "🕒 تم الطلب " + agoAr(t0) }));
+    if (S.etaText && !closed) n.push(el("p", { class: "muted", text: "⏳ " + S.etaText }));
+    n.push(el("p", { class: "muted", text: (o.pickup ? "🏪 " : "📍 ") + (o.address || "") }));
+    if (o.gift?.name) n.push(el("p", { class: "muted", text: "🎁 هدية إلى " + o.gift.name }));
+    if (o.courier) {
+      n.push(el("p", { text: "🚚 المندوب: " + o.courier }));
+      const cp = String(o.courierPhone || "").replace(/\D/g, "");
+      if (o.status === "delivering" && cp) n.push(linkBtn(`tel:+${cp}`, "📞 اتصال بالمندوب"), linkBtn(`https://wa.me/${cp}`, "💬 واتساب المندوب"));
+    }
     n.push(...(o.items || []).map(i => el("div", { class: "row" }, el("span", { text: `${i.qty}x ${i.name}${i.size ? " (" + i.size + ")" : ""}` }), el("b", { text: money(i.price) }))),
+      ...[["المنتجات", o.subtotal], ["الخصم", o.discount ? -o.discount : 0], ["التوصيل", o.deliveryFee]].filter(r => Number(r[1])).map(r => el("div", { class: "row muted" }, el("span", { text: r[0] }), el("span", { text: money(r[1]) }))),
       el("div", { class: "row tot" }, el("span", { text: "الإجمالي" }), el("span", { text: money(o.total || 0) })));
     const bn = botNumber();
     if (bn && o.status !== "cancelled") n.push(el("a", { href: `https://wa.me/${bn}?text=${encodeURIComponent("متابعة طلبي 🔎\nرقم الطلب: " + id + "\n\nاضغط إرسال لمتابعة طلبك 👇")}`, target: "_blank", rel: "noopener", text: o.waTrack ? "✅ المتابعة عبر واتساب مفعّلة" : "💬 متابعة الطلب عبر واتساب", style: "display:block;text-align:center;padding:12px;border-radius:12px;background:#25d366;color:#fff;font-weight:700;text-decoration:none;margin-top:10px" }));
     const w = String(S.whatsapp || "").replace(/\D/g, "");
     if (w) n.push(el("a", { href: `https://wa.me/${w}?text=${encodeURIComponent("بخصوص طلبي رقم " + id.slice(0, 6))}`, target: "_blank", rel: "noopener", text: "💬 تواصل مع المتجر", style: "display:block;text-align:center;padding:10px;border-radius:12px;border:1px solid var(--line);text-decoration:none;color:inherit;margin-top:10px" }));
-    if (o.status === "done") n.push(el("label", { text: o.rating ? "تقييمك: " + "⭐".repeat(o.rating) : "قيّم المندوب" }),
-      ...(o.rating ? [] : [el("div", { class: "opts" }, ...[1, 2, 3, 4, 5].map(k => el("button", { text: "⭐".repeat(k), onclick: () => updateDoc(ref, { rating: k }).then(() => toast("شكراً 🌹")).catch(() => toast("تعذر الحفظ")) })))]),
-      el("button", { class: "pri", text: "🔁 أعد الطلب", style: "width:100%;margin-top:8px", onclick: () => reorder(o) }));
+    if (o.status === "new" && !o.courier && !o.courierUid) n.push(el("button", { text: "❌ إلغاء الطلب", style: "width:100%;margin-top:8px;color:var(--bad)", onclick: () => { if (confirm("تأكيد إلغاء الطلب؟")) updateDoc(ref, { status: "cancelled" }).then(() => toast("تم إلغاء الطلب")).catch(() => toast("تعذر الإلغاء، تواصل مع المتجر")); } }));
+    if (o.status === "done") { const rn = el("input", { placeholder: "ملاحظة على الخدمة (اختياري)", maxlength: "200", style: "margin-top:6px" });
+      n.push(el("label", { text: o.rating ? "تقييمك: " + "⭐".repeat(o.rating) : "قيّم المندوب" }),
+      ...(o.rating ? [] : [rn, el("div", { class: "opts" }, ...[1, 2, 3, 4, 5].map(k => el("button", { text: "⭐".repeat(k), onclick: () => updateDoc(ref, { rating: k }).then(() => { toast("شكراً 🌹"); const v = rn.value.trim(); if (v) updateDoc(ref, { ratingNote: v.slice(0, 200) }).catch(() => { }); }).catch(() => toast("تعذر الحفظ")) })))]),
+      el("button", { class: "pri", text: "🔁 أعد الطلب", style: "width:100%;margin-top:8px", onclick: () => reorder(o) })); }
+    n.push(el("button", { text: "🔗 نسخ رابط التتبع", style: "width:100%;margin-top:8px", onclick: () => navigator.clipboard?.writeText(location.origin + location.pathname + "#o=" + id).then(() => toast("تم نسخ الرابط")) }));
     n.push(el("button", { text: "إغلاق", style: "width:100%;margin-top:10px", onclick: close }));
     box.replaceChildren(...n);
   };
@@ -574,7 +626,7 @@ function heartBtn(p) {
   b.onclick = async () => { let f = [...favs()]; const had = f.includes(p.id); f = had ? f.filter(x => x !== p.id) : [...f, p.id]; if (me) await saveMe({ favs: f }); else ls.set("favs", f); toast(had ? "تم الإلغاء من المفضلة" : "تمت الإضافة للمفضلة ✓"); sync(); };
   return b;
 }
-function locSheet(p) { const L = p.loc; open([el("h2", { text: "📍 " + (L.branch || "مكان المنتج") }), el("div", { class: "locimg" }, img(L.big), el("i", { style: `left:${L.x ?? 50}%;top:${L.y ?? 50}%` }), L.zoom ? (() => { const z = img(L.zoom, "zm"), x = L.x ?? 50, y = L.y ?? 50; z.style.left = x > 55 ? `calc(${x}% - 26% - 28px)` : `calc(${x}% + 28px)`; z.style.top = Math.max(2, Math.min(y - 12, 68)) + "%"; return z; })() : null), el("button", { class: "pri", text: "رجوع", style: "width:100%;margin-top:12px", onclick: () => openProduct(p) })]); }
+function locSheet(p) { const L = p.loc; open([el("h2", { text: "📍 " + (L.branch || "مكان المنتج") }), el("div", { class: "locimg" }, img(L.big, "", 0), el("i", { style: `left:${L.x ?? 50}%;top:${L.y ?? 50}%` }), L.zoom ? (() => { const z = img(L.zoom, "zm"), x = L.x ?? 50, y = L.y ?? 50; z.style.left = x > 55 ? `calc(${x}% - 26% - 28px)` : `calc(${x}% + 28px)`; z.style.top = Math.max(2, Math.min(y - 12, 68)) + "%"; return z; })() : null), el("button", { class: "pri", text: "رجوع", style: "width:100%;margin-top:12px", onclick: () => openProduct(p) })]); }
 async function commentsSheet(p) {
   const box = el("div", { text: "جارٍ التحميل..." }), inp = el("textarea", { placeholder: G("اكتب تعليقك...", "اكتبي تعليقك...") });
   const send = el("button", { class: "pri", text: "نشر", style: "width:100%;margin-top:8px", onclick: async () => { const t = inp.value.trim(); if (!t) return;
@@ -695,8 +747,8 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
 function openProduct(p) {
   const sizes = p.sizes || [], flavors = p.flavors || [];
   let size = sizes.find(s => s.stock !== 0) || sizes[0] || null, flavor = null, qty = 1;
-  const main = img(p.images?.[0], "pv");
-  const thumbs = el("div", { class: "th" }, ...(p.images || []).map((u, i) => { const t = img(u, i ? "" : "on"); t.onclick = () => { main.src = u; thumbs.querySelectorAll("img").forEach(x => x.classList.remove("on")); t.classList.add("on"); }; return t; }));
+  const main = img(p.images?.[0], "pv", 800);
+  const thumbs = el("div", { class: "th" }, ...(p.images || []).map((u, i) => { const t = img(u, i ? "" : "on", 120); t.onclick = () => { main.src = /^https?:\/\//.test(u) ? fast(u, 800) : u; thumbs.querySelectorAll("img").forEach(x => x.classList.remove("on")); t.classList.add("on"); }; return t; }));
   const priceEl = el("div", { class: "price" }), qtyEl = el("b", { text: "1" }), addBtn = el("button", { class: "pri stick", style: "width:100%;margin-top:14px" });
   const unit = () => flavor?.extraPrice > 0 ? flavor.extraPrice : (size?.price ?? p.minPrice ?? 0);
   const refresh = () => {
