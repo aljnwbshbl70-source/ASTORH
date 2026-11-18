@@ -144,6 +144,19 @@ body.hasbg{background:transparent}
 .dmain.on{border-color:var(--accent);color:var(--accent)}
 .dsub{display:block;width:100%;text-align:right;margin:4px 0 4px 0;padding:9px 12px;margin-right:16px;border:0;border-radius:10px;background:var(--soft);font-weight:500;font-size:.92rem}
 .dsub.on{color:var(--accent);font-weight:700}
+.frbar{background:var(--soft);border-radius:14px;padding:10px 12px;margin:0 0 10px}
+.frtxt{font-weight:700;font-size:.9rem;margin-bottom:6px;color:var(--accent)}
+.frtrack{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.frfill{height:100%;background:var(--ok);border-radius:99px;transition:width .4s}
+.flrow{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory}
+.flc{flex:0 0 118px;scroll-snap-align:start;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:6px;text-align:center;transition:.2s}
+.flc.on{border-color:var(--accent);background:var(--soft)}
+.flc img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;display:block}
+.flc .fln{font-size:.82rem;font-weight:700;margin:6px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flc .flp{color:var(--accent);font-weight:700;font-size:.8rem;margin-bottom:6px}
+.flc button{padding:6px 8px;font-size:.82rem;width:100%}
+.flc .qty{justify-content:center;width:100%}
+.flc .qty button{width:auto;padding:2px 10px}
 </style>
 </head>
 <body>
@@ -438,7 +451,7 @@ function startBg(list) {
 }
 function quickAdd(p) {
   const s = p.sizes || [];
-  if (s.length === 1 && !(p.flavors || []).length && s[0].stock !== 0) {
+  if (s.length === 1 && !(p.flavors || []).length && s[0].stock !== 0 && !isWSize(s[0])) {
     const key = [p.id, s[0].label, "", ""].join("|"), ex = cart.find(i => i.key === key);
     if (ex) ex.qty++; else cart.push({ key, id: p.id, name: p.name, image: p.images?.[0] || "", size: s[0].label, flavor: "", note: "", unit: s[0].price, qty: 1 });
     saveCart(); toast("تمت الإضافة ✓");
@@ -774,25 +787,67 @@ $("ov").onclick = e => { if (e.target.id === "ov") close(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
 
 /* صفحة المنتج */
+const isWSize = s => !!s && (s.unit === "كيلو" || s.unit === "جرام");
+const wGrams = s => (s.unit === "كيلو" ? 1000 : 1) * (Number(s.amount) || 1);
 function openProduct(p) {
-  const sizes = p.sizes || [], flavors = p.flavors || [];
-  let size = sizes.find(s => s.stock !== 0) || sizes[0] || null, flavor = null, qty = 1;
+  const allSizes = p.sizes || [], flavors = p.flavors || [];
+  const scaleSize = allSizes.find(isWSize) || null;
+  const plainSizes = allSizes.filter(s => !isWSize(s));
+  const sizeOpts = [...plainSizes, ...(scaleSize ? [scaleSize] : [])];
+  let size = plainSizes.find(s => s.stock !== 0) || plainSizes[0] || scaleSize || null;
+  let qty = 1, scaleAmt = 0;
+  const flQty = {};
+  const pricePerG = scaleSize && scaleSize.price > 0 ? scaleSize.price / wGrams(scaleSize) : 0;
+  const isScale = () => !!scaleSize && size === scaleSize;
+  const scaleGrams = () => (scaleAmt > 0 && pricePerG > 0 ? Math.round(scaleAmt / pricePerG) : 0);
+  const curLabel = () => (isScale() ? scaleGrams() + " جرام" : (size?.label || ""));
+  const basePrice = () => (isScale() ? scaleAmt : (size?.price ?? p.minPrice ?? 0));
+  const flUnit = f => (!isScale() && f.extraPrice > 0 ? f.extraPrice : basePrice());
+  const lines = () => {
+    if (!flavors.length) return [{ flavor: "", qty, unit: basePrice() }];
+    const sel = flavors.filter(f => flQty[f.name] > 0).map(f => ({ flavor: f.name, qty: flQty[f.name], unit: flUnit(f) }));
+    return sel.length ? sel : [{ flavor: "", qty: 1, unit: basePrice() }];
+  };
   const main = img(p.images?.[0], "pv", 800);
   const thumbs = el("div", { class: "th" }, ...(p.images || []).map((u, i) => { const t = img(u, i ? "" : "on", 120); t.onclick = () => { main.src = /^https?:\/\//.test(u) ? fast(u, 800) : u; thumbs.querySelectorAll("img").forEach(x => x.classList.remove("on")); t.classList.add("on"); }; return t; }));
   const priceEl = el("div", { class: "price" }), qtyEl = el("b", { text: "1" }), addBtn = el("button", { class: "pri stick", style: "width:100%;margin-top:14px" });
-  const unit = () => flavor?.extraPrice > 0 ? flavor.extraPrice : (size?.price ?? p.minPrice ?? 0);
   const refresh = () => {
-    priceEl.textContent = money(unit() * qty); qtyEl.textContent = qty;
+    const total = lines().reduce((s, l) => s + l.unit * l.qty, 0);
+    priceEl.textContent = money(total); qtyEl.textContent = qty;
     const out = p.status === "soldout" || (size && size.stock === 0) || !size;
-    addBtn.disabled = out; addBtn.textContent = out ? "غير متوفر" : "أضف إلى السلة";
+    const needAmt = isScale() && !(scaleAmt > 0);
+    addBtn.disabled = out || needAmt;
+    addBtn.textContent = out ? "غير متوفر" : needAmt ? "اكتب المبلغ أولاً" : "أضف إلى السلة";
   };
   const optRow = (arr, get, set, lbl, dis) => { const wrap = el("div", { class: "opts" }); const draw = () => wrap.replaceChildren(...arr.map(o => el("button", { type: "button", class: "opt" + (get() === o ? " on" : ""), disabled: dis?.(o), text: lbl(o), onclick: () => { set(o); draw(); refresh(); } }))); draw(); return wrap; };
   main.style.cursor = "zoom-in";
   main.onclick = () => { const z = el("div", { style: "position:fixed;inset:0;z-index:400;background:#000e;display:grid;place-items:center", onclick: () => z.remove() }, el("img", { src: main.src, style: "max-width:96%;max-height:96%;border-radius:12px" })); document.body.append(z); };
+  // ميزان: إدخال المبلغ بالريال ويُحسب الوزن تلقائياً
+  const sIn = el("input", { type: "number", inputmode: "decimal", min: "0", step: "any", placeholder: "مثال: 10" });
+  const gOut = el("p", { class: "muted", style: "font-weight:700;color:var(--accent);margin:8px 0 0" });
+  const scaleUpd = () => { scaleAmt = Number(sIn.value) || 0; gOut.textContent = scaleAmt > 0 ? `⚖️ ستحصل على ≈ ${scaleGrams()} جرام` : "اكتب المبلغ بالريال وسيُحسب الوزن لك"; refresh(); };
+  sIn.oninput = scaleUpd;
+  const presets = el("div", { class: "opts", style: "margin-top:8px" }, ...[5, 10, 20, 50].map(v => el("button", { type: "button", class: "opt", text: `${v} ر.س`, onclick: () => { sIn.value = v; scaleUpd(); } })));
+  const scaleBox = scaleSize ? el("div", { class: "loc", hidden: isScale() ? false : "" },
+    el("b", { text: `⚖️ الميزان — ${money(scaleSize.price)} لكل ${scaleSize.amount} ${scaleSize.unit}` }),
+    el("label", { text: "اكتب المبلغ بالريال" }), sIn, presets, gOut) : null;
+  const qtyRow = el("div", { class: "qty" }, el("button", { text: "−", onclick: () => { qty = Math.max(1, qty - 1); refresh(); } }), qtyEl, el("button", { text: "+", onclick: () => { qty = Math.min(50, qty + 1); refresh(); } }));
   const nodes = [el("button", { class: "xbtn", text: "✕", "aria-label": "إغلاق", onclick: close }), main, thumbs, el("div", { style: "display:flex;justify-content:space-between;align-items:center" }, el("h2", { text: p.name, style: "margin:6px 0" }), heartBtn(p)), el("div", { class: "c", style: "color:var(--muted)", text: p.categoryName || "" }), priceEl];
-  if (sizes.length) nodes.push(el("label", { text: "الحجم" }), optRow(sizes, () => size, v => size = v, s => `${s.label} — ${money(s.price)}`, s => s.stock === 0));
-  if (flavors.length) nodes.push(el("label", { text: "النكهة / الرائحة" }), optRow(flavors, () => flavor, v => flavor = flavor === v ? null : v, f => f.name + (f.extraPrice ? ` (${f.extraPrice} ر.س)` : "")));
-  nodes.push(el("label", { text: "الكمية" }), el("div", { class: "qty" }, el("button", { text: "−", onclick: () => { qty = Math.max(1, qty - 1); refresh(); } }), qtyEl, el("button", { text: "+", onclick: () => { qty = Math.min(50, qty + 1); refresh(); } })));
+  if (sizeOpts.length > 1 || (sizeOpts.length === 1 && !scaleSize))
+    nodes.push(el("label", { text: "الحجم" }), optRow(sizeOpts, () => size, v => { size = v; if (scaleBox) scaleBox.hidden = !isScale(); }, s => isWSize(s) ? "⚖️ بالميزان" : `${s.label} — ${money(s.price)}`, s => s.stock === 0));
+  if (scaleBox) nodes.push(scaleBox);
+  if (flavors.length) {
+    const fl = el("div", { class: "flrow" });
+    const drawF = () => fl.replaceChildren(...flavors.map(f => {
+      const q = flQty[f.name] || 0;
+      const act = q
+        ? el("div", { class: "qty" }, el("button", { text: "−", onclick: () => { if (q > 1) flQty[f.name] = q - 1; else delete flQty[f.name]; drawF(); refresh(); } }), el("b", { text: q }), el("button", { text: "+", onclick: () => { flQty[f.name] = q + 1; drawF(); refresh(); } }))
+        : el("button", { type: "button", class: "pri", text: "＋ أضف", onclick: () => { flQty[f.name] = 1; drawF(); refresh(); } });
+      return el("div", { class: "flc" + (q ? " on" : "") }, img(f.image || "", "", 240), el("div", { class: "fln", text: f.name }), el("div", { class: "flp", text: money(flUnit(f)) }), act);
+    }));
+    drawF();
+    nodes.push(el("label", { text: "النكهات والروائح (يمكنك اختيار أكثر من واحدة)" }), fl);
+  } else nodes.push(el("label", { text: "الكمية" }), qtyRow);
   if (p.description) nodes.push(el("label", { text: "الوصف" }), el("p", { text: p.description, style: "white-space:pre-line;margin:0" }));
   if (p.loc?.big) nodes.push(el("button", { text: "📍 مكان المنتج في المحل", style: "width:100%;margin-top:10px", onclick: () => locSheet(p) }));
   nodes.push(el("button", { text: "💬 التعليقات", style: "width:100%;margin-top:10px", onclick: () => commentsSheet(p) }));
@@ -800,9 +855,13 @@ function openProduct(p) {
   const note = el("input", { placeholder: "مثال: نقش اسم / لون التغليف" });
   nodes.push(el("label", { text: "ملاحظة على المنتج (اختياري)" }), note);
   addBtn.onclick = () => {
-    const key = [p.id, size?.label, flavor?.name, note.value.trim()].join("|");
-    const ex = cart.find(i => i.key === key);
-    if (ex) ex.qty += qty; else cart.push({ key, id: p.id, name: p.name, image: p.images?.[0] || "", size: size?.label || "", flavor: flavor?.name || "", note: note.value.trim(), unit: unit(), qty });
+    if (isScale() && !(scaleAmt > 0)) return;
+    const lb = curLabel(), nt = note.value.trim();
+    lines().forEach(ln => {
+      const key = [p.id, lb, ln.flavor, nt].join("|");
+      const ex = cart.find(i => i.key === key);
+      if (ex) ex.qty += ln.qty; else cart.push({ key, id: p.id, name: p.name, image: p.images?.[0] || "", size: lb, flavor: ln.flavor, note: nt, unit: ln.unit, qty: ln.qty });
+    });
     saveCart(); toast("تمت الإضافة للسلة ✓"); close();
   };
   nodes.push(addBtn, el("button", { text: "🔗 مشاركة المنتج", style: "width:100%;margin-top:8px", onclick: () => { const u = location.origin + location.pathname + "#p=" + p.id; if (navigator.share) navigator.share({ title: p.name, url: u }).catch(() => {}); else navigator.clipboard?.writeText(u).then(() => toast("تم نسخ الرابط")); } }), el("button", { text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close }));
@@ -832,11 +891,14 @@ function openCart() {
     el("div", { class: "row tot" }, el("span", { text: "الإجمالي" }), el("span", { text: money(sub - vipDisc(sub) + fee) })));
   if (min && sub < min) foot.append(el("p", { class: "warn", text: `الحد الأدنى للطلب ${money(min)} — تبقى ${money(min - sub)}` }));
   if (!st.open) foot.append(el("p", { class: "warn", text: st.msg }));
-  if (Number(S.freeFrom) > 0 && sub < Number(S.freeFrom)) foot.append(el("p", { style: "color:var(--ok);font-weight:600;font-size:.85rem", text: `${G("أضف", "أضيفي")} ${money(Number(S.freeFrom) - sub)} ${G("ويصلك", "ويصلك")} التوصيل مجاناً 🎉` }));
   if (S.feeNote && Number(S.freeFrom) > 0 && sub < Number(S.freeFrom)) foot.append(el("small", { style: "display:block", text: "ℹ️ " + S.feeNote }));
   if (S.etaText) foot.append(el("small", { text: "🚚 " + S.etaText }));
   const go = el("button", { class: "pri", style: "width:100%;margin-top:10px", text: "إتمام الطلب", disabled: false, onclick: openCheckout });
-  open([el("h2", { text: "🛒 سلة التسوق" }), items, foot, go, el("button", { text: "متابعة التسوق", style: "width:100%;margin-top:8px", onclick: close })], true);
+  const fr = Number(S.freeFrom) || 0;
+  const freeBar = fr > 0 ? el("div", { class: "frbar" },
+    el("div", { class: "frtxt", text: sub >= fr ? "🎉 تم تفعيل التوصيل المجاني" : `${G("أضف", "أضيفي")} ${money(fr - sub)} ${G("ويصلك", "ويصلك")} التوصيل المجاني` }),
+    el("div", { class: "frtrack" }, el("div", { class: "frfill", style: `width:${Math.min(100, sub / fr * 100).toFixed(1)}%` }))) : null;
+  open([el("h2", { text: "🛒 سلة التسوق" }), freeBar, items, foot, go, el("button", { text: "متابعة التسوق", style: "width:100%;margin-top:8px", onclick: close })].filter(Boolean), true);
 }
 
 /* إتمام الطلب */
