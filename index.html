@@ -131,6 +131,19 @@ body.hasbg{background:transparent}
 @keyframes pl{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 25%,transparent)}}
 .stbox{background:var(--soft);border-radius:16px;padding:14px;text-align:center;font-weight:700;font-size:1.1rem;color:var(--accent)}
 .muted{color:var(--muted);font-size:.9rem;margin:4px 0}
+.menuwrap{position:relative;flex:0 0 auto;display:inline-flex}
+.menubtn{width:42px;height:42px;padding:0;display:grid;place-items:center;font-size:1.35rem;line-height:1;border-radius:12px}
+.tip{position:absolute;top:calc(100% + 14px);right:-4px;z-index:90;white-space:nowrap;background:var(--accent);color:#fff;padding:9px 14px;border-radius:12px;font-weight:700;font-size:.85rem;box-shadow:var(--sh);animation:up .4s both}
+.tip::before{content:"";position:absolute;top:-7px;right:18px;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:7px solid var(--accent)}
+.dtbs{display:flex;gap:10px;margin:6px 0 14px}
+.dtb{flex:1;padding:14px 10px;font-size:1.05rem;border-radius:14px}
+.dtb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dlist{flex:1;overflow:auto;padding-bottom:20px}
+.dall{display:block;width:100%;text-align:right;margin:4px 0 8px;padding:12px 14px;border:0;border-radius:12px;background:var(--soft);font-weight:700;color:var(--accent)}
+.dmain{display:block;width:100%;text-align:right;margin:6px 0;padding:12px 14px;border-radius:12px;font-size:1rem}
+.dmain.on{border-color:var(--accent);color:var(--accent)}
+.dsub{display:block;width:100%;text-align:right;margin:4px 0 4px 0;padding:9px 12px;margin-right:16px;border:0;border-radius:10px;background:var(--soft);font-weight:500;font-size:.92rem}
+.dsub.on{color:var(--accent);font-weight:700}
 </style>
 </head>
 <body>
@@ -151,6 +164,7 @@ body.hasbg{background:transparent}
 </script>
 <header>
   <div class="wrap hd">
+    <span class="menuwrap"><button id="menuBtn" class="menubtn" aria-label="الأقسام">☰</button><span id="tip" class="tip" hidden>تصفح بالأقسام من هنا</span></span>
     <img id="logo" alt="" hidden style="height:38px;border-radius:8px"><h1 id="brand">أسطورة العروس</h1>
     <div class="sw"><input id="q" type="search" placeholder="ابحث عن منتج..." autocomplete="off"><div id="sug" class="sug" hidden></div></div>
     <button id="themeBtn" aria-label="المظهر">🌙</button>
@@ -163,9 +177,6 @@ body.hasbg{background:transparent}
 <main class="wrap">
   <section class="hero"><h2 id="heroT">أهلاً بك</h2><p id="heroS">اطلب منتجاتك بكل سهولة</p></section>
   <div id="vidBox"></div>
-  <div id="chips" class="chips"></div>
-  <input id="chipSlide" type="range" min="0" max="100" value="0" style="width:100%;padding:0;margin:0" aria-label="تحريك الأقسام">
-  <div id="subchips" class="chips subchips" hidden></div>
   <div id="hotWrap" hidden><h3 class="sec">🔥 الأكثر طلباً (آخر 30 يوم)</h3><div id="hot" class="grid"></div></div>
   <div id="featWrap" hidden><h3 class="sec">⭐ منتجات مميزة</h3><div id="feat" class="grid"></div></div>
   <div style="display:flex;justify-content:space-between;align-items:center"><h3 class="sec" id="allT">كل المنتجات</h3><select id="sort" style="width:auto;padding:6px 10px"><option value="">الأحدث</option><option value="lo">الأرخص</option><option value="hi">الأغلى</option></select></div>
@@ -196,7 +207,7 @@ const IMGBB_KEY = "ecc70a772677138fa33e8029ff4070db";
 const $ = id => document.getElementById(id);
 const NO_IMG = "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="#e4dce8"/><text x="60" y="66" font-size="13" text-anchor="middle" fill="#8a7d92" font-family="sans-serif">بدون صورة</text></svg>');
 
-let S = {}, cats = [], prods = [], cart = [], selCat = "", selSub = "", term = "", bgList = [], view = "home";
+let S = {}, cats = [], prods = [], cart = [], selCat = "", selSub = "", term = "", bgList = [], view = "home", selType = "", drawerType = "care", drawerExp = "";
 let _cu = null, _ctab = "new", _cfirst = true;
 
 /* أدوات */
@@ -282,11 +293,10 @@ async function init() {
   }
   cart = ls.get("cart", []);
   applySettings();
-  renderChips();
   render();
-  window.hideSplash?.();
+  window.hideSplash?.(); setTimeout(() => tipShow(), 2400);
   Promise.all([loadMe(), loadHot()]).then(() => { render(); updateCart(); });
-  if (fresh) fresh.then(r => { if (r && JSON.stringify(r) !== JSON.stringify(cached)) { applyCatalog(r); applySettings(); renderChips(); render(); } });
+  if (fresh) fresh.then(r => { if (r && JSON.stringify(r) !== JSON.stringify(cached)) { applyCatalog(r); applySettings(); render(); } });
   try { localStorage.setItem("splashCache", JSON.stringify({ name: S.storeName || "", logo: S.logoUrl || "", wel: lines2(S.welcomeText), dhk: lines2(S.dhikrText) })); } catch {}
   const dm = location.hash.match(/^#p=(.+)$/), dp = dm && prods.find(x => x.id === dm[1]);
   const om = location.hash.match(/^#([od])=(.+)$/);
@@ -327,23 +337,44 @@ function applySettings() {
   $("fInfo").textContent = info.join(" • ");
 }
 
-/* الأقسام */
-function renderChips() {
-  const mains = cats.filter(c => !c.parentId);
-  $("chips").replaceChildren(
-    el("button", { class: "chip" + (!selCat ? " on" : ""), text: "الكل", onclick: () => { selCat = ""; selSub = ""; renderChips(); render(); } }),
-    ...mains.map(c => el("button", { class: "chip" + (selCat === c.id ? " on" : ""), text: c.name, onclick: () => { selCat = c.id; selSub = ""; renderChips(); render(); } }))
-  );
-  const subs = cats.filter(c => c.parentId === selCat);
-  $("subchips").hidden = !subs.length;
-  $("subchips").replaceChildren(...subs.map(c => el("button", { class: "chip" + (selSub === c.id ? " on" : ""), text: c.name, onclick: () => { selSub = selSub === c.id ? "" : c.id; renderChips(); render(); } })));
+/* الأقسام: تُعرض في القائمة الجانبية (☰) */
+const mainTypeOf = c => (c.mainType === "herbs" ? "herbs" : "care"); // الأقسام القديمة بلا mainType تُعتبر "عناية"
+function typeOfCat(id) { const c = cats.find(x => x.id === id); if (!c) return ""; const r = c.parentId ? cats.find(x => x.id === c.parentId) : c; return mainTypeOf(r || c); }
+const byCatOrder = (a, b) => (a.order || 0) - (b.order || 0);
+function goList(mainId = "", subId = "", type = "") {
+  selCat = mainId; selSub = subId; selType = type; view = "home";
+  document.querySelectorAll("#bnav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === "home"));
+  close(); render(); window.scrollTo({ top: 0, behavior: "smooth" });
 }
+function openCatDrawer() {
+  const T = drawerType, mains = cats.filter(c => !c.parentId && mainTypeOf(c) === T).sort(byCatOrder);
+  const tb = (t, label) => el("button", { class: "dtb" + (T === t ? " on" : ""), text: label, onclick: () => { drawerType = t; openCatDrawer(); } });
+  const items = [el("button", { class: "dall", text: T === "herbs" ? "عرض كل منتجات العطارة" : "عرض كل منتجات العناية", onclick: () => goList("", "", T) })];
+  if (!mains.length) items.push(el("p", { class: "muted", text: "لا توجد أقسام هنا بعد." }));
+  mains.forEach(m => {
+    const subs = cats.filter(c => c.parentId === m.id).sort(byCatOrder), isOpen = !!subs.length && drawerExp === m.id;
+    items.push(el("button", { class: "dmain" + (selCat === m.id && !selSub && !selType ? " on" : ""), text: (subs.length ? (isOpen ? "▾ " : "◂ ") : "") + m.name,
+      onclick: () => { if (subs.length) { drawerExp = isOpen ? "" : m.id; openCatDrawer(); } else goList(m.id, "", ""); } }));
+    if (isOpen) {
+      items.push(el("button", { class: "dsub", text: "عرض كل " + m.name, onclick: () => goList(m.id, "", "") }));
+      subs.forEach(s => items.push(el("button", { class: "dsub" + (selSub === s.id ? " on" : ""), text: s.name, onclick: () => goList(m.id, s.id, "") })));
+    }
+  });
+  open([el("h2", { text: "☰ تصفح بالأقسام" }), el("div", { class: "dtbs" }, tb("care", "✨ عناية"), tb("herbs", "🌿 عطارة")), el("div", { class: "dlist" }, ...items)], true);
+}
+$("menuBtn").onclick = () => { tipHide(); openCatDrawer(); };
+/* تلميح الترحيب: يظهر فوق الأيقونة 5 ثوانٍ أو حتى أول ضغطة، ولمرة واحدة */
+let tipDone = false, tipT = null;
+function tipShow() { if (tipDone) return; if (!$("ov").hidden) { setTimeout(tipShow, 800); return; } tipDone = true; $("tip").hidden = false; tipT = setTimeout(tipHide, 5000); }
+function tipHide() { clearTimeout(tipT); $("tip").hidden = true; }
+document.addEventListener("click", tipHide);
 
 /* المنتجات */
 function matches(p) {
   if (term && !((p.name || "") + " " + (p.keywords || "")).toLowerCase().includes(term.toLowerCase())) return false;
   if (selSub) return p.categoryId === selSub;
   if (selCat) { const ids = [selCat, ...cats.filter(c => c.parentId === selCat).map(c => c.id)]; return ids.includes(p.categoryId); }
+  if (selType) return typeOfCat(p.categoryId) === selType;
   return true;
 }
 function card(p) {
@@ -360,13 +391,13 @@ function render() {
   if (view === "fav") list = list.filter(p => favs().includes(p.id));
   if (view === "new") list = [...list].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 12);
   if (view === "sug") list = list.filter(p => p.featured).concat(list.filter(p => !p.featured)).slice(0, 12);
-  const showFeat = S.showFeat !== false && view === "home" && !selCat && !term && list.some(p => p.featured);
+  const showFeat = S.showFeat !== false && view === "home" && !selCat && !selType && !term && list.some(p => p.featured);
   $("featWrap").hidden = !showFeat;
-  const hl = hotIds().map(id => prods.find(p => p.id === id)).filter(Boolean); $("hotWrap").hidden = !(view === "home" && !selCat && !term && hl.length);
+  const hl = hotIds().map(id => prods.find(p => p.id === id)).filter(Boolean); $("hotWrap").hidden = !(view === "home" && !selCat && !selType && !term && hl.length);
   if (!$("hotWrap").hidden) $("hot").replaceChildren(...hl.map(card));
   if (showFeat) $("feat").replaceChildren(...list.filter(p => p.featured).map(card));
   $("allT").textContent = term ? `نتائج البحث (${list.length})` : ({ offers: "🔥 العروض", new: "✨ جديدنا", fav: "❤️ مفضلتي" }[view] || "كل المنتجات");
-  const key = [view, selCat, selSub, term, $("sort").value].join("|");
+  const key = [view, selCat, selSub, selType, term, $("sort").value].join("|");
   if (key !== _listKey) { _listKey = key; _shown = PAGE; }
   paintList(list);
 }
@@ -413,7 +444,7 @@ function quickAdd(p) {
     saveCart(); toast("تمت الإضافة ✓");
   } else openProduct(p);
 }
-function setView(v) { if (v === "sug") return openSuggest(); view = v; document.querySelectorAll("#bnav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === v)); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function setView(v) { if (v === "sug") return openSuggest(); selCat = ""; selSub = ""; selType = ""; view = v; document.querySelectorAll("#bnav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === v)); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 document.querySelectorAll("#bnav [data-v]").forEach(b => b.onclick = () => setView(b.dataset.v));
 $("bcart").onclick = () => openCart(); $("bset").onclick = () => openProfile();
 function openSettings() {
@@ -660,7 +691,6 @@ function searchSheet() {
 $("bsearch").onclick = () => searchSheet();
 window.addEventListener("hashchange", () => { const m = location.hash.match(/^#([od])=(.+)$/); if (location.hash === "#courier" || m?.[1] === "d") courierPage(); else if (m) orderView(m[1], m[2]); });
 $("rep").onclick = () => feedback("reports", "⚠️ بلاغ", G("اكتب بلاغك...", "اكتبي بلاغك..."), "سوف نراجع بلاغك بعين الاعتبار، شكراً لك. بلاغاتكم تهمنا 🌹");
-$("chipSlide").oninput = e => { const c = $("chips"); c.scrollLeft = -(e.target.value / 100) * (c.scrollWidth - c.clientWidth); };
 const capp = initApp2(app.options, "courier"), cauth = getAuth(capp), cdb = getFirestore(capp);
 let cname = "";
 const toEmail = u => u.includes("@") ? u : "u" + [...u].map(c => c.codePointAt(0).toString(16)).join("-") + "@staff.local";
@@ -727,7 +757,7 @@ async function watchMe() {
 function live(q, fn) { let first = true; onSnapshot(q, s => { if (first) { first = false; return; } fn(s); }, () => {}); }
 function startLive() {
   live(collection(db, "products"), s => { prods = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.status !== "hidden"); render(); });
-  live(collection(db, "categories"), s => { cats = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0)); renderChips(); });
+  live(collection(db, "categories"), s => { cats = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0)); render(); });
   live(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5))), s => { const m = {}; s.docs.forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; render(); });
   live(doc(db, "settings", "store"), s => { S = s.data() || {}; if (S.freeFrom === undefined || S.freeFrom === "") S.freeFrom = 100;
     const mine = ls.get("th"); if (mine || S.color) setColor(mine || S.color);
