@@ -157,6 +157,13 @@ body.hasbg{background:transparent}
 .flc button{padding:6px 8px;font-size:.82rem;width:100%}
 .flc .qty{justify-content:center;width:100%}
 .flc .qty button{width:auto;padding:2px 10px}
+.hbtns{display:flex;gap:10px;padding:10px 16px 4px}
+.hq{margin:14px 16px 0;text-align:center;font-size:1.05rem;color:var(--accent)}
+.hbtns button{flex:1;padding:12px 8px;font-weight:700}
+.hbtns .ghost{background:var(--soft);color:var(--accent);border:1px solid var(--line)}
+.aubtn{position:fixed;bottom:84px;right:14px;z-index:70;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:1.3rem;box-shadow:var(--sh)}
+.tipw{position:fixed;left:12px;bottom:146px;z-index:90;background:var(--accent);color:#fff;padding:9px 14px;border-radius:12px;font-weight:700;font-size:.85rem;box-shadow:var(--sh);max-width:70vw;animation:up .4s both}
+.tipw::after{content:"";position:absolute;bottom:-7px;left:22px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:7px solid var(--accent)}
 </style>
 </head>
 <body>
@@ -189,6 +196,9 @@ body.hasbg{background:transparent}
 
 <main class="wrap">
   <section class="hero"><h2 id="heroT">أهلاً بك</h2><p id="heroS">اطلب منتجاتك بكل سهولة</p></section>
+  <div id="hbox"><h3 class="hq">ماذا تريد أن تتسوق؟</h3>
+  <div class="hbtns"><button class="pri" data-hb="herbs">🌿 عطارة</button><button class="pri" data-hb="care">✨ عناية</button></div>
+  <div class="hbtns"><button id="cbtn" class="ghost">🌍 بلد المنشأ</button></div></div>
   <div id="vidBox"></div>
   <div id="hotWrap" hidden><h3 class="sec">🔥 الأكثر طلباً (آخر 30 يوم)</h3><div id="hot" class="grid"></div></div>
   <div id="featWrap" hidden><h3 class="sec">⭐ منتجات مميزة</h3><div id="feat" class="grid"></div></div>
@@ -197,9 +207,11 @@ body.hasbg{background:transparent}
 </main>
 
 <footer><div class="wrap"><div id="fName"></div><div id="fInfo"></div><div id="fSoc" class="soc"></div><div id="fTxt"></div></div></footer>
-<button id="rep" class="rep" aria-label="إبلاغ">!<small>إبلاغ</small></button>
-<nav id="bnav" class="bnav"><button data-v="home" class="on">🏠<span>الرئيسية</span></button><button id="bsearch">🔍<span>بحث</span></button><button data-v="offers">🔥<span>عروض</span></button><button data-v="new">✨<span>جديدنا</span></button><button data-v="sug">💡<span>اقتراحات</span></button><button id="bcart">🛒<span>السلة</span><b id="bcnt">0</b></button><button id="bset">👤<span>حسابي</span></button></nav>
-<a id="wafab" class="wafab" hidden target="_blank" rel="noopener" aria-label="تواصل">💬<small>تواصل</small></a>
+<button id="rep" class="rep" aria-label="إبلاغ" style="display:none">!<small>إبلاغ</small></button>
+<nav id="bnav" class="bnav"><button data-v="home" class="on">🏠<span>الرئيسية</span></button><button id="bsearch">🔍<span>بحث</span></button><button data-v="offers">🔥<span>عروض</span></button><button data-v="new">✨<span>جديدنا</span></button><button id="bcart">🛒<span>السلة</span><b id="bcnt">0</b></button><button id="bset">👤<span>الإعدادات</span></button></nav>
+<button id="aubtn" class="aubtn" aria-label="الصوت" hidden>🔇</button>
+    <div id="aubox" style="position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden"></div>
+    <a id="wafab" class="wafab" hidden target="_blank" rel="noopener" aria-label="تواصل">💬<small>تواصل</small></a>
 <button id="fbar" class="fbar" hidden><span id="fcount"></span><span id="ftot"></span></button>
 <div id="toast" role="status"></div>
 <div id="ov" class="ov" hidden><div class="sheet" id="sheet"></div></div>
@@ -208,7 +220,7 @@ body.hasbg{background:transparent}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { initializeApp as initApp2 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, setDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, setDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
 const app = initializeApp({
   apiKey:"AIzaSyDhZrTQ4QFM8AhznH5ArQa9A8_kY86G2vM",authDomain:"astorh-d60b8.firebaseapp.com",
@@ -220,7 +232,7 @@ const IMGBB_KEY = "ecc70a772677138fa33e8029ff4070db";
 const $ = id => document.getElementById(id);
 const NO_IMG = "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="#e4dce8"/><text x="60" y="66" font-size="13" text-anchor="middle" fill="#8a7d92" font-family="sans-serif">بدون صورة</text></svg>');
 
-let S = {}, cats = [], prods = [], cart = [], selCat = "", selSub = "", term = "", bgList = [], view = "home", selType = "", drawerType = "care", drawerExp = "";
+let S = {}, cats = [], prods = [], cart = [], selCat = "", selSub = "", term = "", bgList = [], view = "home", selType = "", drawerType = "care", drawerExp = "", selCountry = "";
 let _cu = null, _ctab = "new", _cfirst = true;
 
 /* أدوات */
@@ -307,7 +319,7 @@ async function init() {
   cart = ls.get("cart", []);
   applySettings();
   render();
-  window.hideSplash?.(); setTimeout(() => tipShow(), 2400);
+  window.hideSplash?.(); setTimeout(() => tipShow(), 2400); setTimeout(waTipShow, 3000);
   Promise.all([loadMe(), loadHot()]).then(() => { render(); updateCart(); });
   if (fresh) fresh.then(r => { if (r && JSON.stringify(r) !== JSON.stringify(cached)) { applyCatalog(r); applySettings(); render(); } });
   try { localStorage.setItem("splashCache", JSON.stringify({ name: S.storeName || "", logo: S.logoUrl || "", wel: lines2(S.welcomeText), dhk: lines2(S.dhikrText) })); } catch {}
@@ -318,8 +330,9 @@ async function init() {
   const pop = S.videoMode === "popup" && S.videoUrl;
   startLive();
   await new Promise(r => setTimeout(r, 1400));
-  if ((S.notice || pop) && !seen && !dp && !om && location.hash !== "#courier") {
-    open([S.notice && el("h2", { text: "📢 تنبيه" }), S.notice && el("p", { text: S.notice, style: "white-space:pre-line;font-size:1.05rem" }), pop && videoEl(), el("button", { class: "pri", style: "width:100%", text: "🛍️ تسوق", onclick: close })].filter(Boolean));
+  if ((S.annOn !== false || pop) && !seen && !dp && !om && location.hash !== "#courier") {
+    open([S.annImg && img(S.annImg, "", 600), S.annOn !== false && el("p", { text: S.annText || DEF_ANN, style: "white-space:pre-line;font-size:1.02rem;line-height:1.9;margin:0" }), pop && videoEl(), el("button", { class: "pri", style: "width:100%", text: "دخول", onclick: close })].filter(Boolean));
+    if (S.annBg) Object.assign($("ov").style, { backgroundImage: `linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url("${S.annBg}")`, backgroundSize: "cover", backgroundPosition: "center" });
     try { sessionStorage.setItem("seen", "1"); } catch {}
   }
   updateCart();
@@ -330,7 +343,7 @@ function applySettings() {
   document.title = name;
   $("brand").textContent = name; $("heroT").textContent = S.heroTitle || "أهلاً بك في " + name; $("fName").textContent = name;
   if (S.heroSub) $("heroS").textContent = S.heroSub;
-  $("heroS").textContent += S.deliveryOpen === false ? " • 🔴 المحل مغلق حالياً" : " • 🟢 المحل مفتوح";
+    setHeroStatus();
   const rs = document.documentElement.style;
   if (S.color) { rs.setProperty("--accent", S.color); rs.setProperty("--accent2", `color-mix(in srgb,${S.color} 80%,#000)`); rs.setProperty("--soft", `color-mix(in srgb,${S.color} 12%,var(--card))`); }
   rs.setProperty("--cols", Number(S.cols) || 6);
@@ -355,7 +368,7 @@ const mainTypeOf = c => (c.mainType === "herbs" ? "herbs" : "care"); // الأق
 function typeOfCat(id) { const c = cats.find(x => x.id === id); if (!c) return ""; const r = c.parentId ? cats.find(x => x.id === c.parentId) : c; return mainTypeOf(r || c); }
 const byCatOrder = (a, b) => (a.order || 0) - (b.order || 0);
 function goList(mainId = "", subId = "", type = "") {
-  selCat = mainId; selSub = subId; selType = type; view = "home";
+  selCat = mainId; selSub = subId; selType = type; selCountry = ""; view = "home";
   document.querySelectorAll("#bnav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === "home"));
   close(); render(); window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -382,9 +395,155 @@ function tipShow() { if (tipDone) return; if (!$("ov").hidden) { setTimeout(tipS
 function tipHide() { clearTimeout(tipT); $("tip").hidden = true; }
 document.addEventListener("click", tipHide);
 
+/* ===== الإعدادات (المركز) ===== */
+const DEF_ANN = "🌸 زبائننا الكرام، أهلًا وسهلًا بكم 🌸\n\nنود إشعاركم بأن المتجر لا يزال قيد التطوير والتحديث، وأن المنتجات المعروضة حاليًا ليست مكتملة بعد.\n\nنعمل جاهدين على إضافة المزيد من المنتجات وتوفير جميع متطلباتكم واحتياجاتكم في أقرب وقت ممكن، لنقدم لكم تجربة تسوّق أفضل تليق بكم 💗\n\nونسعد دائمًا باستقبال اقتراحاتكم وملاحظاتكم، فلا تبخلوا علينا بآرائكم عبر زر «اقتراح» الموجود في قسم الإعدادات.\n\nشكرًا لثقتكم ودعمكم، ونسعد بوجودكم معنا 🌷\n\nمتجرنا يكبر بكم، واقتراحاتكم تصنع الفرق. ❤️";
+function openHub() {
+  if (!me || me.new) return authSheet(openHub);
+  const aud = el("input", { placeholder: "رابط يوتيوب أو سبوتيفاي أو ملف صوت مباشر", value: me?.settings?.audio || "" });
+  const saveAud = async () => {
+    if (!me || me.new) return authSheet(openHub);
+    const v = aud.value.trim();
+    if (v && !audioInfo(v)) { toast("هذا الرابط غير مدعوم"); return; }
+    await saveMe({ settings: { ...(me.settings || {}), audio: v } });
+    aState.started = false; if (aState.el) { aState.el.remove?.(); aState.el = null; }
+    $("aubox").replaceChildren(); gestured = true; audioStart(); aUi();
+    toast("تم حفظ صوت الخلفية ✓");
+  };
+  open([
+    el("h2", { text: "⚙️ الإعدادات" }),
+    el("button", { class: "pri", style: "width:100%", text: `👤 ${me && !me.new ? me.name : "حسابي"} — الملف الشخصي`, onclick: () => openProfile() }),
+    el("label", { text: "🎵 صوت الخلفية (يشتغل تلقائياً عند كل دخول)" }), aud,
+    el("button", { style: "width:100%;margin-top:6px", text: "حفظ الصوت", onclick: saveAud }),
+    el("label", { text: "🎨 المظهر" }),
+    el("button", { style: "width:100%", text: "فتح إعدادات المظهر", onclick: () => openSettings() }),
+    el("label", { text: "التواصل مع المتجر" }),
+    el("button", { style: "width:100%", text: "💡 اقتراح", onclick: () => openSuggest() }),
+    el("button", { style: "width:100%;margin-top:6px", text: "⚠️ إبلاغ", onclick: () => feedback("reports", "⚠️ بلاغ", G("اكتب بلاغك...", "اكتبي بلاغك..."), "سوف نراجع بلاغك بعين الاعتبار، شكراً لك. بلاغاتكم تهمنا 🌹") }),
+    el("button", { style: "width:100%;margin-top:6px", text: "📖 تعليمات الاستخدام", onclick: () => openInstructions() }),
+    el("button", { style: "width:100%;margin-top:10px", text: "إغلاق", onclick: close })
+  ]);
+}
+function openInstructions() {
+  const tuts = (S.tutorials || "").split("\n").map(x => x.trim()).filter(Boolean);
+  open([
+    el("h2", { text: "📖 تعليمات الاستخدام" }),
+    el("p", { text: S.instructions || "لا توجد تعليمات بعد.", style: "white-space:pre-line;line-height:1.9" }),
+    ...(tuts.length ? [el("label", { text: "🎬 فيديوهات الشروحات" }), ...tuts.map((u, i) => el("a", { class: "pri", href: u, target: "_blank", rel: "noopener", style: "display:block;text-align:center;padding:12px;border-radius:12px;margin:6px 0;text-decoration:none", text: `▶️ شرح ${i + 1}` }))] : []),
+    el("button", { style: "width:100%;margin-top:8px", text: "رجوع", onclick: () => openHub() })
+  ]);
+}
+
+/* ===== مشغل الصوت لكل زبون ===== */
+function audioInfo(u) {
+  let m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);
+  if (m) return { t: "yt", src: `https://www.youtube.com/embed/${m[1]}?enablejsapi=1&autoplay=1&loop=1&playlist=${m[1]}&controls=0&playsinline=1` };
+  m = u.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|episode|show)\/([A-Za-z0-9]+)/);
+  if (m) return { t: "sp", src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=generator&autoplay=1` };
+  if (/^https?:\/\/.+\.(mp3|m4a|ogg|wav|aac)(\?.*)?$/i.test(u)) return { t: "file", src: u };
+  return null;
+}
+let gestured = false;
+const aState = { started: false, el: null, kind: "", src: "", muted: ls.get("am", false) };
+function ytCmd(f) { const w = aState.el?.contentWindow; if (w && aState.kind === "yt") w.postMessage(JSON.stringify({ event: "command", func: f, args: [] }), "*"); }
+function aUi() { const b = $("aubtn"); if (b) { b.textContent = aState.muted ? "🔇" : "🔊"; b.title = aState.muted ? "تشغيل الصوت" : "كتم الصوت"; } }
+function audioStart() {
+  if (aState.started || !gestured) return;
+  const u = me?.settings?.audio; if (!u) return;
+  const info = audioInfo(u); if (!info) return;
+  aState.started = true; aState.kind = info.t; aState.src = info.src;
+  const box = $("aubox"); box.replaceChildren();
+  if (info.t === "file") {
+    const a = document.createElement("audio"); a.src = info.src; a.loop = true; a.autoplay = true; a.muted = aState.muted;
+    box.append(a); aState.el = a; a.play().catch(() => {});
+  } else {
+    const f = document.createElement("iframe"); f.src = aState.muted && info.t === "sp" ? "about:blank" : info.src;
+    f.allow = "autoplay; encrypted-media"; f.style.border = "0"; f.width = "1"; f.height = "1";
+    box.append(f); aState.el = f;
+    if (info.t === "yt") f.onload = () => ytCmd(aState.muted ? "mute" : "unMute");
+  }
+  $("aubtn").hidden = false; aUi();
+}
+function audioInit() { if (me?.settings?.audio && gestured) audioStart(); if (me && !me.new) $("aubtn").hidden = false; }
+function audioToggle() {
+  if (!me || me.new) { toast("سجّل دخولك أولاً ثم خصص صوت الخلفية من الإعدادات"); return; }
+  if (!me.settings?.audio) { toast("لم يتم تخصيص الصوت، ادخل للإعدادات > صوت الخلفية الافتراضي"); return; }
+  if (!aState.started) { gestured = true; aState.muted = false; ls.set("am", false); audioStart(); return aUi(); }
+  aState.muted = !aState.muted; ls.set("am", aState.muted);
+  if (aState.kind === "file") aState.el.muted = aState.muted;
+  else if (aState.kind === "yt") ytCmd(aState.muted ? "mute" : "unMute");
+  else if (aState.el) aState.el.src = aState.muted ? "about:blank" : aState.src;
+  aUi();
+}
+$("aubtn").onclick = audioToggle;
+$("aubtn").hidden = false;
+document.addEventListener("pointerdown", e => { if (e.target.closest?.("#aubtn")) return; gestured = true; audioStart(); }, { passive: true });
+
+/* ===== تصفية بلد المنشأ ===== */
+function pickCountry(c) { selCountry = c; selCat = ""; selSub = ""; selType = ""; view = "home"; document.querySelectorAll("#bnav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === "home")); close(); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function openCountries() {
+  const counts = {}; prods.forEach(p => { if (p.country && p.status !== "hidden") counts[p.country] = (counts[p.country] || 0) + 1; });
+  const list = Object.keys(counts).sort((a, b) => a.localeCompare(b, "ar"));
+  open([
+    el("h2", { text: "🌍 بلد المنشأ" }),
+    el("button", { class: "dall", text: "عرض كل البلدان", onclick: () => pickCountry("") }),
+    ...(list.length ? list.map(c => el("button", { class: "dsub" + (selCountry === c ? " on" : ""), text: `${c} (${counts[c]})`, onclick: () => pickCountry(c) })) : [el("p", { class: "muted", text: "لا توجد منتجات بعد." })])
+  ], true);
+}
+$("cbtn").onclick = openCountries;
+document.querySelectorAll("[data-hb]").forEach(b => b.onclick = () => goList("", "", b.dataset.hb));
+
+/* ===== تلميحات أول زيارة ===== */
+function waTipShow() {
+  if (!$("wafab") || $("wafab").hidden || ls.get("wat")) return;
+  ls.set("wat", 1);
+  const t = el("div", { class: "tipw", text: "تواصل هنا مباشرة مع المحل" });
+  document.body.append(t);
+  const off = () => t.remove();
+  setTimeout(off, 5000); document.addEventListener("click", off, { once: true });
+}
+
+/* ===== الزيارات والوقت على الموقع ===== */
+let trackedOnce = false;
+function trackVisit() {
+  if (trackedOnce || !me || me.new) return;
+  trackedOnce = true;
+  const today = new Date().toISOString().slice(0, 10);
+  updateDoc(doc(db, "customers", me.id), { visitDays: arrayUnion(today), visits: increment(1), lastSeen: serverTimestamp() }).catch(() => {});
+  setInterval(() => { if (document.visibilityState === "visible" && me && !me.new) updateDoc(doc(db, "customers", me.id), { minutes: increment(1) }).catch(() => {}); }, 60000);
+}
+/* ===== إعادة تعيين الأكثر طلباً ===== */
+let hotResetMs = 0;
+const soldOk = d => (d.data().at?.toMillis?.() || 0) > hotResetMs;
+/* ===== تقييم الطلبات ===== */
+function ratingRow(oid, o) {
+  if (o.status !== "done") return [];
+  const b = [];
+  if (!o.ratedProduct) b.push(el("button", { style: "flex:1", text: "⭐ قيّم المنتج", onclick: () => rateSheet(oid, o, "product") }));
+  if (!o.ratedCourier && o.courier) b.push(el("button", { style: "flex:1", text: "🚚 قيّم المندوب", onclick: () => rateSheet(oid, o, "courier") }));
+  return b.length ? [el("div", { style: "display:flex;gap:6px;margin:-2px 0 10px" }, ...b)] : [];
+}
+function rateSheet(oid, o, type) {
+  let stars = 5;
+  const txt = el("textarea", { placeholder: "اكتب رأيك (اختياري)" });
+  const sb = [1, 2, 3, 4, 5].map(n => el("button", { type: "button", class: "opt" + (n === 5 ? " on" : ""), text: "⭐".repeat(n), onclick: () => { stars = n; sb.forEach((b, i) => b.classList.toggle("on", i < n)); } }));
+  open([el("h2", { text: type === "product" ? "⭐ قيّم المنتج" : "🚚 قيّم المندوب" }),
+    el("p", { text: type === "product" ? (o.items || []).map(i => i.name).join("، ") : (o.courier || ""), style: "color:var(--muted)" }),
+    el("div", { class: "opts" }, ...sb), txt,
+    el("button", { class: "pri", text: "إرسال التقييم", style: "width:100%;margin-top:12px", onclick: async () => {
+      try {
+        await addDoc(collection(db, "ratings"), { orderId: oid, type, stars, text: txt.value.trim(), name: me?.name || o.customerName || "زبون", phone: me?.phone || o.phone || "", items: (o.items || []).map(i => i.name).join("، "), courier: o.courier || "", createdAt: serverTimestamp() });
+        await updateDoc(doc(db, "orders", oid), type === "product" ? { ratedProduct: true } : { ratedCourier: true });
+        if (type === "product") o.ratedProduct = true; else o.ratedCourier = true;
+        toast("شكراً لتقييمك ✓"); openProfile();
+      } catch (e) { toast("تعذر الإرسال، حاول لاحقاً"); }
+    } }),
+    el("button", { text: "إلغاء", style: "width:100%;margin-top:8px", onclick: () => openProfile() })]);
+}
+
 /* المنتجات */
 function matches(p) {
   if (term && !((p.name || "") + " " + (p.keywords || "")).toLowerCase().includes(term.toLowerCase())) return false;
+  if (selCountry && (p.country || "") !== selCountry) return false;
   if (selSub) return p.categoryId === selSub;
   if (selCat) { const ids = [selCat, ...cats.filter(c => c.parentId === selCat).map(c => c.id)]; return ids.includes(p.categoryId); }
   if (selType) return typeOfCat(p.categoryId) === selType;
@@ -399,18 +558,19 @@ function card(p) {
     el("div", { class: "b" }, el("p", { class: "n", text: p.name }), el("div", { class: "c", text: p.categoryName || "" }), el("div", { class: "p" }, p.oldPrice > p.minPrice ? el("s", { text: money(p.oldPrice) + " ", style: "color:var(--muted);font-size:.7em" }) : null, "من " + money(p.minPrice || 0))));
 }
 function render() {
+  $("hbox").hidden = !(view === "home" && !selCat && !selType && !selCountry && !term);
   let list = prods.filter(matches).sort(sorter);
   if (view === "offers") list = list.filter(p => p.offer);
   if (view === "fav") list = list.filter(p => favs().includes(p.id));
   if (view === "new") list = [...list].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 12);
   if (view === "sug") list = list.filter(p => p.featured).concat(list.filter(p => !p.featured)).slice(0, 12);
-  const showFeat = S.showFeat !== false && view === "home" && !selCat && !selType && !term && list.some(p => p.featured);
+  const showFeat = S.showFeat !== false && view === "home" && !selCat && !selType && !selCountry && !term && list.some(p => p.featured);
   $("featWrap").hidden = !showFeat;
-  const hl = hotIds().map(id => prods.find(p => p.id === id)).filter(Boolean); $("hotWrap").hidden = !(view === "home" && !selCat && !selType && !term && hl.length);
+  const hl = hotIds().map(id => prods.find(p => p.id === id)).filter(Boolean); $("hotWrap").hidden = !(view === "home" && !selCat && !selType && !selCountry && !term && hl.length);
   if (!$("hotWrap").hidden) $("hot").replaceChildren(...hl.map(card));
   if (showFeat) $("feat").replaceChildren(...list.filter(p => p.featured).map(card));
   $("allT").textContent = term ? `نتائج البحث (${list.length})` : ({ offers: "🔥 العروض", new: "✨ جديدنا", fav: "❤️ مفضلتي" }[view] || "كل المنتجات");
-  const key = [view, selCat, selSub, selType, term, $("sort").value].join("|");
+  const key = [view, selCat, selSub, selType, selCountry, term, $("sort").value].join("|");
   if (key !== _listKey) { _listKey = key; _shown = PAGE; }
   paintList(list);
 }
@@ -457,10 +617,11 @@ function quickAdd(p) {
     saveCart(); toast("تمت الإضافة ✓");
   } else openProduct(p);
 }
-function setView(v) { if (v === "sug") return openSuggest(); selCat = ""; selSub = ""; selType = ""; view = v; document.querySelectorAll("#bnav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === v)); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function setView(v) { if (v === "sug") return openSuggest(); selCat = ""; selSub = ""; selType = ""; selCountry = ""; view = v; document.querySelectorAll("#bnav [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === v)); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 document.querySelectorAll("#bnav [data-v]").forEach(b => b.onclick = () => setView(b.dataset.v));
-$("bcart").onclick = () => openCart(); $("bset").onclick = () => openProfile();
+$("bcart").onclick = () => openCart(); $("bset").onclick = () => openHub();
 function openSettings() {
+  if (!me || me.new) return authSheet(openSettings);
   const th = [["وردي", "#8e2a52"], ["ذهبي", "#b8860b"], ["زمردي", "#1f7a5c"], ["أزرق", "#1e5aa8"], ["بنفسجي", "#6b3fa0"],
     ...(S.themesText || "").split("\n").map(l => l.split("|")).filter(a => a[1] && /^#[0-9a-f]{3,8}$/i.test(a[1].trim())).map(a => [a[0].trim(), a[1].trim()])];
   const cb = el("input", { type: "checkbox" }); cb.checked = ls.get("bgOn", true);
@@ -556,10 +717,10 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const lines2 = t => (t || "").split("\n").map(x => x.trim()).filter(Boolean);
 const THEMES = () => [["وردي", "#d6336c"], ["ذهبي", "#b8860b"], ["زمردي", "#1f7a5c"], ["أزرق", "#1e5aa8"], ["بنفسجي", "#6b3fa0"], ["ليلكي", "#9b5de5"], ["برتقالي", "#e8590c"], ["أسود", "#1a1a1a"], ["تركوازي", "#0d9488"],
   ...lines2(S.themesText).map(l => l.split("|")).filter(a => a[1] && /^#[0-9a-f]{3,8}$/i.test(a[1].trim())).map(a => [a[0].trim(), a[1].trim()])];
-let me = null;
-async function loadMe() { await new Promise(r => { const un = onAuthStateChanged(auth, async u => { un(); if (u) await syncMe(u); r(); }); }); }
+let me = ls.get("meCache", null);
+async function loadMe() { await new Promise(r => { const un = onAuthStateChanged(auth, async u => { un(); if (u) await syncMe(u); else { me = null; ls.set("meCache", null); } r(); }); }); }
 let hot = {}; const hotIds = () => Object.entries(hot).sort((a, b) => b[1] - a[1]).slice(0, 6).map(e => e[0]);
-async function loadHot() { try { const s = await getDocs(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5)))); const m = {}; s.docs.forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; } catch {} }
+async function loadHot() { try { const hr = await getDoc(doc(db, "settings", "hotreset")); hotResetMs = hr.exists() ? (hr.data().at?.toMillis?.() || 0) : 0; } catch {} try { const s = await getDocs(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5)))); const m = {}; s.docs.filter(soldOk).forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; } catch {} }
 const G = (m, f) => (me?.gender || ls.get("g")) === "f" ? f : m;
 const setZoom = z => { document.body.style.zoom = z; ls.set("zoom", z); }; const zoomNow = () => Number(ls.get("zoom", 1)) || 1; setZoom(zoomNow());
 const avBadge = a => /^https?:/.test(a || "") ? el("img", { src: a, alt: "", style: "width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle" }) : (a || "👤");
@@ -570,13 +731,14 @@ async function syncMe(u) {
     if (!me.new) { applyMe(); watchMe(); } } catch { me = null; }
   return me;
 }
-function applyMe() {
+function setHeroStatus() { $("heroS").textContent = (S.heroSub || "اطلب منتجاتك بكل سهولة") + (S.deliveryOpen === false ? " • 🔴 المحل مغلق حالياً" : " • 🟢 المحل مفتوح"); }
+function applyMe() { audioInit(); trackVisit(); if (me && !me.new) ls.set("meCache", me);
   if (!me) return; const st = me.settings || {};
   setColor(st.th || ls.get("th") || (me.gender === "m" ? "#1a1a1a" : "#d6336c"));
   setZoom(st.zoom || zoomNow()); ls.set("g", me.gender);
   $("heroT").textContent = me.gender === "m" ? `أهلاً بك يا ${me.name} 👋` : `أهلاً بكِ يا ${me.name} 🌸`;
 }
-async function saveMe(patch) { Object.assign(me, patch); try { await updateDoc(doc(db, "customers", me.id), patch); } catch {} }
+async function saveMe(patch) { Object.assign(me, patch); if (!me.new) ls.set("meCache", me); try { await updateDoc(doc(db, "customers", me.id), patch); } catch {} }
 /* ===== توثيق الرقم عبر واتساب ===== */
 const normPh = v => { let d = String(v || "").replace(/[٠-٩]/g, c => "٠١٢٣٤٥٦٧٨٩".indexOf(c)).replace(/\D/g, ""); if (!d) return ""; if (d.startsWith("00")) d = d.slice(2); else if (d.startsWith("0")) d = "966" + d.slice(1); else if (d.length === 9 && d[0] === "5") d = "966" + d; if (d.startsWith("9660")) d = "966" + d.slice(4); return d; };
 const isVerified = () => !!(me && !me.new && me.phoneVerified && me.verifiedPhone && me.verifiedPhone === normPh(me.phone));
@@ -615,12 +777,31 @@ function openVerify(after) {
 }
 
 function profileSetup(after) {
-  const n = el("input", { value: me.name || "", placeholder: "اسمك الكريم" }), p = el("input", { type: "tel", dir: "ltr", placeholder: "05XXXXXXXX", inputmode: "tel" }); let g = "f";
-  const gb = el("div", { class: "opts" }, ...[["f", "👩🏻 أنثى"], ["m", "👨🏻 ذكر"]].map(([k, t]) => el("button", { type: "button", text: t, class: "opt" + (k === g ? " on" : ""), onclick: e => { g = k; window._intro.textContent = k === "f" ? "عرّفينا على نفسك عشان نخدمك بالشكل اللي يليق بكِ" : "عرّفنا على نفسك عشان نخدمك بالشكل اللي يليق بك"; gb.querySelectorAll("button").forEach(b => b.classList.remove("on")); e.target.classList.add("on"); } })));
-  open([el("h2", { text: G("حيّاك الله 🌹", "حيّاكِ الله 🌹") }), (window._intro = el("p", { text: G("عرّفنا على نفسك عشان نخدمك بالشكل اللي يليق بك", "عرّفينا على نفسك عشان نخدمك بالشكل اللي يليق بكِ"), style: "color:var(--muted)" })), el("label", { text: "الاسم" }), n, el("label", { text: "رقم جوالك" }), p, el("label", { text: "الجنس" }), gb,
-    el("button", { class: "pri", text: "حفظ ومتابعة", style: "width:100%;margin-top:12px", onclick: async () => { const ph = p.value.replace(/\D/g, ""); if (!n.value.trim() || ph.length < 9) { toast(G("تأكد من الاسم والجوال", "تأكدي من الاسم والجوال")); return; }
-      const data = { name: n.value.trim(), phone: ph, gender: g, email: me.email || "", favs: [], settings: {}, createdAt: serverTimestamp() };
-      try { await setDoc(doc(db, "customers", me.id), data); me = { id: me.id, ...data }; applyMe(); toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (needVerify()) openVerify(after); else if (after) after(); } catch (e) { toast("تعذر الحفظ: " + e.message); } } })]);
+  const n = el("input", { value: me.name || "", placeholder: "اسمك الكريم" }); let g = "f";
+  const opts = [["f", "👩🏻 أنثى"], ["m", "👨🏻 ذكر"]];
+  const gBtns = opts.map(([k, t]) => el("button", { type: "button", text: t, class: "opt" + (k === g ? " on" : "") }));
+  gBtns.forEach((b, i) => { b.onclick = () => { g = opts[i][0]; gBtns.forEach((x, j) => x.classList.toggle("on", j === i)); }; });
+  open([el("h2", { text: G("حيّاك الله 🌹", "حيّاكِ الله 🌹") }),
+    el("p", { text: "الخطوة 1 من 2: الاسم والجنس", style: "color:var(--muted)" }),
+    el("label", { text: "الاسم" }), n,
+    el("label", { text: "الجنس" }), el("div", { class: "opts" }, ...gBtns),
+    el("button", { class: "pri", text: "التالي", style: "width:100%;margin-top:12px", onclick: () => {
+      if (!n.value.trim()) { toast(G("اكتب اسمك", "اكتبي اسمك")); return; }
+      profilePhoneStep({ name: n.value.trim(), gender: g }, after);
+    } })]);
+}
+function profilePhoneStep(base, after) {
+  const p = el("input", { type: "tel", dir: "ltr", placeholder: "05XXXXXXXX", inputmode: "tel" });
+  open([el("h2", { text: "📱 رقم الجوال" }),
+    el("p", { text: "الخطوة 2 من 2: نستخدم رقمك لتوثيق حسابك وتتبع طلباتك", style: "color:var(--muted)" }),
+    el("label", { text: "رقم جوالك" }), p,
+    el("button", { class: "pri", text: "حفظ ومتابعة", style: "width:100%;margin-top:12px", onclick: async () => {
+      const ph = p.value.replace(/\D/g, "");
+      if (ph.length < 9) { toast(G("تأكد من الجوال", "تأكدي من الجوال")); return; }
+      const data = { name: base.name, phone: ph, gender: base.gender, email: me.email || "", favs: [], settings: {}, createdAt: serverTimestamp() };
+      try { await setDoc(doc(db, "customers", me.id), data); me = { id: me.id, ...data }; applyMe(); toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (needVerify()) openVerify(after); else if (after) after(); }
+      catch (e) { toast("تعذر الحفظ: " + e.message); }
+    } })]);
 }
 
 /* تسجيل الدخول بقوقل */
@@ -659,7 +840,7 @@ async function openProfile() {
     el("label", { text: "ردود المتجر على بلاغاتك واقتراحاتك" }), reps, el("label", { text: "طلباتي" }), ords,
     el("button", { text: "تسجيل الخروج", style: "width:100%;margin-top:10px", onclick: () => signOut(auth).then(() => location.reload()) }), el("button", { class: "pri", text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
   try { const s = await getDocs(query(collection(db, "orders"), where("phone", "==", me.phone || "-")));
-    ords.replaceChildren(...(s.docs.length ? s.docs.map(d => { const o = d.data(); return el("div", { style: "display:flex;gap:6px;margin-bottom:6px" }, el("button", { style: "flex:1;text-align:right", text: `${money(o.total || 0)} — ${ST_ALL[o.status] || o.status}`, onclick: () => orderView("o", d.id) }), el("button", { class: "pri", text: "🔁 أعد طلبي", onclick: () => reorder(o) })); }) : [el("small", { text: "لا توجد طلبات بعد" })])); } catch { ords.textContent = "تعذر التحميل"; }
+    ords.replaceChildren(...(s.docs.length ? s.docs.flatMap(d => { const o = d.data(); return [el("div", { style: "display:flex;gap:6px;margin-bottom:6px" }, el("button", { style: "flex:1;text-align:right", text: `${money(o.total || 0)} — ${ST_ALL[o.status] || o.status}`, onclick: () => orderView("o", d.id) }), el("button", { class: "pri", text: "🔁 أعد طلبي", onclick: () => reorder(o) })), ...ratingRow(d.id, o)]; }) : [el("small", { text: "لا توجد طلبات بعد" })])); } catch { ords.textContent = "تعذر التحميل"; }
   try { const rs = []; for (const col of ["reports", "suggestions"]) (await getDocs(query(collection(db, col), where("phone", "==", me.phone || "-")))).docs.forEach(d => { const x = d.data(); if (x.reply) rs.push(el("div", { class: "cm" }, el("small", { text: x.text }), el("div", { text: "↩️ " + x.reply }))); });
     reps.replaceChildren(...(rs.length ? rs : [el("small", { text: "لا توجد ردود بعد" })])); } catch {}
 }
@@ -674,7 +855,7 @@ function locSheet(p) { const L = p.loc; open([el("h2", { text: "📍 " + (L.bran
 async function commentsSheet(p) {
   const box = el("div", { text: "جارٍ التحميل..." }), inp = el("textarea", { placeholder: G("اكتب تعليقك...", "اكتبي تعليقك...") });
   const send = el("button", { class: "pri", text: "نشر", style: "width:100%;margin-top:8px", onclick: async () => { const t = inp.value.trim(); if (!t) return;
-    try { await addDoc(collection(db, "comments"), { pid: p.id, pname: p.name, name: me.name, gender: me.gender, avatar: me.avatar || "", text: t, createdAt: serverTimestamp() }); commentsSheet(p); } catch { toast("تعذر النشر"); } } });
+    try { await addDoc(collection(db, "comments"), { pid: p.id, pname: p.name, cid: me.id, phone: me.phone || "", name: me.name, gender: me.gender, avatar: me.avatar || "", text: t, createdAt: serverTimestamp() }); commentsSheet(p); } catch { toast("تعذر النشر"); } } });
   open([el("h2", { text: "💬 التعليقات" }), box, me ? el("div", {}, inp, send) : el("button", { class: "pri", text: G("سجّل دخول لتعلّق", "سجّلي دخول لتعلّقي"), style: "width:100%", onclick: () => authSheet(() => commentsSheet(p)) }), el("button", { text: "رجوع", style: "width:100%;margin-top:8px", onclick: () => openProduct(p) })]);
   try { const s = await getDocs(query(collection(db, "comments"), where("pid", "==", p.id))); const l = s.docs.map(d => d.data()).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     box.replaceChildren(...(l.length ? l.map(c => el("div", { class: "cm" }, el("b", {}, avBadge(c.avatar), " " + c.name), el("div", { text: c.text }), c.reply ? el("div", { text: "↩️ رد المتجر: " + c.reply, style: "color:var(--accent);font-size:.9em" }) : null)) : [el("small", { text: "لا توجد تعليقات بعد" })])); } catch { box.textContent = "تعذر التحميل"; }
@@ -771,13 +952,13 @@ function live(q, fn) { let first = true; onSnapshot(q, s => { if (first) { first
 function startLive() {
   live(collection(db, "products"), s => { prods = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.status !== "hidden"); render(); });
   live(collection(db, "categories"), s => { cats = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0)); render(); });
-  live(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5))), s => { const m = {}; s.docs.forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; render(); });
-  live(doc(db, "settings", "store"), s => { S = s.data() || {}; if (S.freeFrom === undefined || S.freeFrom === "") S.freeFrom = 100;
+  live(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5))), s => { const m = {}; s.docs.filter(soldOk).forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; render(); });
+  live(doc(db, "settings", "store"), s => { S = s.data() || {}; loadHot().then(() => render()); if (S.freeFrom === undefined || S.freeFrom === "") S.freeFrom = 100;
     const mine = ls.get("th"); if (mine || S.color) setColor(mine || S.color);
     document.documentElement.style.setProperty("--cols", Number(S.cols) || 6);
     $("notice").textContent = S.notice || ""; $("notice").hidden = !S.notice;
     const sd = deliveryState(); $("closed").hidden = sd.open; if (!sd.open) $("closed").textContent = sd.msg;
-    $("heroS").textContent = (S.heroSub || $("heroS").textContent.split(" • ")[0]) + (S.deliveryOpen === false ? " • 🔴 المحل مغلق حالياً" : " • 🟢 المحل مفتوح"); });
+    setHeroStatus(); });
 }
 const feeFor = (sub, pick, d) => pick ? 0 : (Number(S.freeFrom) > 0 && sub >= Number(S.freeFrom)) ? 0 : d ? (Number(lines2(S.districts).map(l => l.split("|")).find(a => a[0].trim() === d)?.[1]) || Number(S.deliveryFee) || 0) : Number(S.deliveryFee) || 0;
 /* النوافذ */
@@ -832,7 +1013,7 @@ function openProduct(p) {
     el("b", { text: `⚖️ الميزان — ${money(scaleSize.price)} لكل ${scaleSize.amount} ${scaleSize.unit}` }),
     el("label", { text: "اكتب المبلغ بالريال" }), sIn, presets, gOut) : null;
   const qtyRow = el("div", { class: "qty" }, el("button", { text: "−", onclick: () => { qty = Math.max(1, qty - 1); refresh(); } }), qtyEl, el("button", { text: "+", onclick: () => { qty = Math.min(50, qty + 1); refresh(); } }));
-  const nodes = [el("button", { class: "xbtn", text: "✕", "aria-label": "إغلاق", onclick: close }), main, thumbs, el("div", { style: "display:flex;justify-content:space-between;align-items:center" }, el("h2", { text: p.name, style: "margin:6px 0" }), heartBtn(p)), el("div", { class: "c", style: "color:var(--muted)", text: p.categoryName || "" }), priceEl];
+  const nodes = [el("button", { class: "xbtn", text: "✕", "aria-label": "إغلاق", onclick: close }), main, thumbs, el("div", { style: "display:flex;justify-content:space-between;align-items:center" }, el("h2", { text: p.name, style: "margin:6px 0" }), heartBtn(p)), el("div", { class: "c", style: "color:var(--muted)", text: [p.categoryName, p.country].filter(Boolean).join(" • ") }), priceEl];
   if (sizeOpts.length > 1 || (sizeOpts.length === 1 && !scaleSize))
     nodes.push(el("label", { text: "الحجم" }), optRow(sizeOpts, () => size, v => { size = v; if (scaleBox) scaleBox.hidden = !isScale(); }, s => isWSize(s) ? "⚖️ بالميزان" : `${s.label} — ${money(s.price)}`, s => s.stock === 0));
   if (scaleBox) nodes.push(scaleBox);
@@ -849,9 +1030,9 @@ function openProduct(p) {
     nodes.push(el("label", { text: "النكهات والروائح (يمكنك اختيار أكثر من واحدة)" }), fl);
   } else nodes.push(el("label", { text: "الكمية" }), qtyRow);
   if (p.description) nodes.push(el("label", { text: "الوصف" }), el("p", { text: p.description, style: "white-space:pre-line;margin:0" }));
+  if (p.usage) nodes.push(el("button", { class: "pri", text: "📖 طريقة الاستخدام", style: "width:100%;margin-top:10px", onclick: () => open([el("h2", { text: "طريقة الاستخدام" }), el("p", { text: p.usage, style: "white-space:pre-line" }), el("button", { class: "pri", text: "إغلاق", style: "width:100%", onclick: () => openProduct(p) })]) }));
   if (p.loc?.big) nodes.push(el("button", { text: "📍 مكان المنتج في المحل", style: "width:100%;margin-top:10px", onclick: () => locSheet(p) }));
   nodes.push(el("button", { text: "💬 التعليقات", style: "width:100%;margin-top:10px", onclick: () => commentsSheet(p) }));
-  if (p.usage) nodes.push(el("button", { text: "📖 طريقة الاستخدام", style: "width:100%;margin-top:10px", onclick: () => open([el("h2", { text: "طريقة الاستخدام" }), el("p", { text: p.usage, style: "white-space:pre-line" }), el("button", { class: "pri", text: "إغلاق", style: "width:100%", onclick: () => openProduct(p) })]) }));
   const note = el("input", { placeholder: "مثال: نقش اسم / لون التغليف" });
   nodes.push(el("label", { text: "ملاحظة على المنتج (اختياري)" }), note);
   addBtn.onclick = () => {
