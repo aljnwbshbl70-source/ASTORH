@@ -161,9 +161,44 @@ body.hasbg{background:transparent}
 .hq{margin:14px 16px 0;text-align:center;font-size:1.05rem;color:var(--accent)}
 .hbtns button{flex:1;padding:12px 8px;font-weight:700}
 .hbtns .ghost{background:var(--soft);color:var(--accent);border:1px solid var(--line)}
-.aubtn{position:fixed;bottom:84px;right:14px;z-index:70;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:1.3rem;box-shadow:var(--sh)}
+.aubtn{position:fixed;top:72px;right:12px;z-index:70;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:1.3rem;box-shadow:var(--sh)}
 .tipw{position:fixed;left:12px;bottom:146px;z-index:90;background:var(--accent);color:#fff;padding:9px 14px;border-radius:12px;font-weight:700;font-size:.85rem;box-shadow:var(--sh);max-width:70vw;animation:up .4s both}
 .tipw::after{content:"";position:absolute;bottom:-7px;left:22px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:7px solid var(--accent)}
+#sheet.glass{background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.hubcard{background:linear-gradient(135deg,#8b5cf6,#c084fc 55%,#f472b6);color:#fff;border-radius:18px;padding:16px;display:flex;gap:12px;align-items:center;margin-bottom:12px;box-shadow:0 10px 24px rgba(139,92,246,.25)}
+.hubcard img{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid #fff}
+.hubcard small{opacity:.9}
+.hubsec{margin:14px 4px 6px;color:#7c3aed;font-weight:800;font-size:.85rem}
+.hubrow{display:flex;align-items:center;gap:12px;width:100%;text-align:right;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin:6px 0;font-weight:600}
+.hubico{flex:0 0 36px;height:36px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#8b5cf6,#f472b6);color:#fff;font-weight:800;font-size:1rem}
+.hubtxt{flex:1;display:flex;flex-direction:column}
+.hubtxt small{color:var(--muted);font-weight:500;font-size:.78rem}
+.chev{color:#a78bfa;font-size:1.3rem}
+.swrow{display:flex;justify-content:space-between;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line)}
+.swt{position:relative;width:50px;height:28px;flex:0 0 50px}
+.swt input{opacity:0;width:0;height:0}
+.swt span{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.25s;cursor:pointer}
+.swt span::after{content:"";position:absolute;width:22px;height:22px;right:3px;top:3px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.swt input:checked + span{background:linear-gradient(135deg,#8b5cf6,#f472b6)}
+.swt input:checked + span::after{right:25px}
+.ov.page .sheet{max-width:100%;width:100%;height:100vh;height:100dvh;max-height:none;border-radius:0;overflow:auto}
+@media(min-width:700px){.ov.page{align-items:stretch}.ov.page .sheet{border-radius:0}}
+.hdbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:800;font-size:.85rem;padding:0;display:grid;place-items:center}
+.aubtn.inhdr{position:static;width:40px;height:40px;font-size:1rem;box-shadow:none;border-radius:12px;background:var(--card);color:inherit;border:1px solid var(--line);padding:0}
+.pfcard{background:linear-gradient(135deg,#7c3aed,#c084fc 55%,#f472b6);color:#fff;border-radius:22px;padding:18px;margin:6px 0 14px;box-shadow:0 12px 28px rgba(124,58,237,.3)}
+.pfpic{position:relative;width:88px;height:88px;margin:0 auto}
+.pfpic img,.pfemoji{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #fff;display:grid;place-items:center;font-size:2.6rem;background:rgba(255,255,255,.2)}
+.pencil{position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;background:#fff;color:#7c3aed;display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.2);font-size:.95rem}
+.pfinfo{text-align:center;margin-top:10px}.pfinfo b{font-size:1.15rem}
+.pfstats{display:flex;justify-content:space-around;margin-top:14px;text-align:center}.pfstats b{font-size:1.4rem;display:block}.pfstats small{opacity:.9}
+.ov.page{background:var(--bg,#faf7fb)!important;backdrop-filter:none!important;align-items:stretch!important;padding:0!important}
+.ov.page .sheet{max-width:none!important;width:100%!important;height:100vh!important;height:100dvh!important;max-height:none!important;border-radius:0!important;margin:0!important;overflow:auto}
+.ov.ann .sheet{max-width:380px!important;width:92vw!important;border-radius:22px!important}
+.annimg{width:100%;height:190px;object-fit:cover;border-radius:16px;display:block;margin-bottom:10px}
+body.zsmall .grid{grid-template-columns:repeat(2,1fr)!important}
+body.zsmall .pc img{aspect-ratio:auto;height:120px}
+body.zlarge .grid{grid-template-columns:1fr!important}
+@media(min-width:700px){body.zlarge .grid{grid-template-columns:repeat(2,1fr)!important}}
 </style>
 </head>
 <body>
@@ -188,6 +223,7 @@ body.hasbg{background:transparent}
     <img id="logo" alt="" hidden style="height:38px;border-radius:8px"><h1 id="brand">أسطورة العروس</h1>
     <div class="sw"><input id="q" type="search" placeholder="ابحث عن منتج..." autocomplete="off"><div id="sug" class="sug" hidden></div></div>
     <button id="themeBtn" aria-label="المظهر">🌙</button>
+    <button id="aubtn" class="aubtn inhdr" aria-label="الصوت">🔇</button>
     <button id="cartBtn" class="cartbtn" aria-label="السلة">🛒<b id="cnt">0</b></button>
   </div>
   <div id="notice" class="banner notice" hidden></div>
@@ -209,8 +245,7 @@ body.hasbg{background:transparent}
 <footer><div class="wrap"><div id="fName"></div><div id="fInfo"></div><div id="fSoc" class="soc"></div><div id="fTxt"></div></div></footer>
 <button id="rep" class="rep" aria-label="إبلاغ" style="display:none">!<small>إبلاغ</small></button>
 <nav id="bnav" class="bnav"><button data-v="home" class="on">🏠<span>الرئيسية</span></button><button id="bsearch">🔍<span>بحث</span></button><button data-v="offers">🔥<span>عروض</span></button><button data-v="new">✨<span>جديدنا</span></button><button id="bcart">🛒<span>السلة</span><b id="bcnt">0</b></button><button id="bset">👤<span>الإعدادات</span></button></nav>
-<button id="aubtn" class="aubtn" aria-label="الصوت" hidden>🔇</button>
-    <div id="aubox" style="position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden"></div>
+<div id="aubox" style="position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden"></div>
     <a id="wafab" class="wafab" hidden target="_blank" rel="noopener" aria-label="تواصل">💬<small>تواصل</small></a>
 <button id="fbar" class="fbar" hidden><span id="fcount"></span><span id="ftot"></span></button>
 <div id="toast" role="status"></div>
@@ -219,8 +254,8 @@ body.hasbg{background:transparent}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { initializeApp as initApp2 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, setDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, updatePassword, sendPasswordResetEmail, deleteUser } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, setDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, increment, arrayUnion, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
 const app = initializeApp({
   apiKey:"AIzaSyDhZrTQ4QFM8AhznH5ArQa9A8_kY86G2vM",authDomain:"astorh-d60b8.firebaseapp.com",
@@ -330,9 +365,10 @@ async function init() {
   const pop = S.videoMode === "popup" && S.videoUrl;
   startLive();
   await new Promise(r => setTimeout(r, 1400));
-  if ((S.annOn !== false || pop) && !seen && !dp && !om && location.hash !== "#courier") {
-    open([S.annImg && img(S.annImg, "", 600), S.annOn !== false && el("p", { text: S.annText || DEF_ANN, style: "white-space:pre-line;font-size:1.02rem;line-height:1.9;margin:0" }), pop && videoEl(), el("button", { class: "pri", style: "width:100%", text: "دخول", onclick: close })].filter(Boolean));
-    if (S.annBg) Object.assign($("ov").style, { backgroundImage: `linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url("${S.annBg}")`, backgroundSize: "cover", backgroundPosition: "center" });
+  if ((S.annOn !== false || pop) && !dp && !om && location.hash !== "#courier") {
+    open([S.annImg && img(S.annImg, "annimg", 600), S.annOn !== false && el("p", { text: S.annText || DEF_ANN, style: "white-space:pre-line;font-size:1.02rem;line-height:1.9;margin:0" }), pop && videoEl(), el("button", { class: "pri", style: "width:100%", text: "دخول", onclick: close })].filter(Boolean));
+    $("ov").classList.add("ann");
+  if (S.annBg) Object.assign($("ov").style, { backgroundImage: `linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url("${S.annBg}")`, backgroundSize: "cover", backgroundPosition: "center" });
     try { sessionStorage.setItem("seen", "1"); } catch {}
   }
   updateCart();
@@ -397,39 +433,195 @@ document.addEventListener("click", tipHide);
 
 /* ===== الإعدادات (المركز) ===== */
 const DEF_ANN = "🌸 زبائننا الكرام، أهلًا وسهلًا بكم 🌸\n\nنود إشعاركم بأن المتجر لا يزال قيد التطوير والتحديث، وأن المنتجات المعروضة حاليًا ليست مكتملة بعد.\n\nنعمل جاهدين على إضافة المزيد من المنتجات وتوفير جميع متطلباتكم واحتياجاتكم في أقرب وقت ممكن، لنقدم لكم تجربة تسوّق أفضل تليق بكم 💗\n\nونسعد دائمًا باستقبال اقتراحاتكم وملاحظاتكم، فلا تبخلوا علينا بآرائكم عبر زر «اقتراح» الموجود في قسم الإعدادات.\n\nشكرًا لثقتكم ودعمكم، ونسعد بوجودكم معنا 🌷\n\nمتجرنا يكبر بكم، واقتراحاتكم تصنع الفرق. ❤️";
+const APP_VERSION = "2.0.0";
+const openPage = nodes => { open(nodes); $("ov").classList.add("page"); };
+const TXT_DEFAULT = {
+  about: "أسطورة العروس متجر يهتم بتقديم منتجات العناية والعطارة بجودة مختارة، ونسعد بخدمتكم دائماً.",
+  privacy: "نحفظ بياناتك (الاسم والجوال والبريد) لإتمام طلباتك وتوثيق حسابك فقط، ولا نشاركها مع أي جهة خارجية.",
+  terms: "باستخدامك للمتجر فإنك توافق على أن الأسعار والتوفر قابلة للتغيير، وأن الطلبات تُؤكد بعد مراجعتها.",
+  returns: "يمكن طلب الاستبدال أو الاسترجاع خلال 48 ساعة من الاستلام بشرط أن يكون المنتج سليماً وغير مستخدم، وبالتواصل مع المتجر."
+};
+const ico = (g, title, sub, fn) => el("button", { class: "hubrow", onclick: fn }, el("span", { class: "hubico", text: g }), el("span", { class: "hubtxt" }, el("b", { text: title }), sub ? el("small", { text: sub }) : null), el("span", { class: "chev", text: "‹" }));
+const sheetBack = (title, nodes) => openPage([el("h2", { text: title }), ...nodes, el("button", { style: "width:100%;margin-top:12px", text: "رجوع", onclick: openHub })].filter(Boolean));
 function openHub() {
   if (!me || me.new) return authSheet(openHub);
-  const aud = el("input", { placeholder: "رابط يوتيوب أو سبوتيفاي أو ملف صوت مباشر", value: me?.settings?.audio || "" });
-  const saveAud = async () => {
-    if (!me || me.new) return authSheet(openHub);
-    const v = aud.value.trim();
-    if (v && !audioInfo(v)) { toast("هذا الرابط غير مدعوم"); return; }
-    await saveMe({ settings: { ...(me.settings || {}), audio: v } });
-    aState.started = false; if (aState.el) { aState.el.remove?.(); aState.el = null; }
-    $("aubox").replaceChildren(); gestured = true; audioStart(); aUi();
-    toast("تم حفظ صوت الخلفية ✓");
-  };
-  open([
-    el("h2", { text: "⚙️ الإعدادات" }),
-    el("button", { class: "pri", style: "width:100%", text: `👤 ${me && !me.new ? me.name : "حسابي"} — الملف الشخصي`, onclick: () => openProfile() }),
-    el("label", { text: "🎵 صوت الخلفية (يشتغل تلقائياً عند كل دخول)" }), aud,
-    el("button", { style: "width:100%;margin-top:6px", text: "حفظ الصوت", onclick: saveAud }),
-    el("label", { text: "🎨 المظهر" }),
-    el("button", { style: "width:100%", text: "فتح إعدادات المظهر", onclick: () => openSettings() }),
-    el("label", { text: "التواصل مع المتجر" }),
-    el("button", { style: "width:100%", text: "💡 اقتراح", onclick: () => openSuggest() }),
-    el("button", { style: "width:100%;margin-top:6px", text: "⚠️ إبلاغ", onclick: () => feedback("reports", "⚠️ بلاغ", G("اكتب بلاغك...", "اكتبي بلاغك..."), "سوف نراجع بلاغك بعين الاعتبار، شكراً لك. بلاغاتكم تهمنا 🌹") }),
-    el("button", { style: "width:100%;margin-top:6px", text: "📖 تعليمات الاستخدام", onclick: () => openInstructions() }),
-    el("button", { style: "width:100%;margin-top:10px", text: "إغلاق", onclick: close })
+  const pic = /^https?:/.test(me.avatar || "") ? el("img", { src: me.avatar, alt: "" }) : el("div", { class: "pfemoji", text: me.avatar || "👤" });
+  const ordCnt = el("b", { text: "…" });
+  const pencil = el("label", { class: "pencil", title: "تغيير الصورة" }, el("input", { type: "file", accept: "image/*", style: "display:none", onchange: async e => {
+    const u = await uploadAv(e.target.files[0]);
+    if (u) { await saveMe({ avatar: u }); toast("تم تحديث الصورة ✓"); openHub(); }
+  } }), "✏️");
+  const card = el("div", { class: "pfcard" },
+    el("div", { class: "pfpic" }, pic, pencil),
+    el("div", { class: "pfinfo" }, el("b", { text: me.name || "" }), el("br"), el("small", { text: me.phoneVerified ? "✅ حساب موثّق" : "حساب غير موثّق بعد" })),
+    el("div", { class: "pfstats" }, el("div", {}, ordCnt, el("small", { text: "طلب منفذ" })), el("div", {}, el("b", { text: String(me.visits || 0) }), el("small", { text: "مرة دخلت الموقع" }))));
+  openPage([
+    el("h2", { text: "⚙️ الإعدادات" }), card,
+    el("div", { class: "hubsec", text: "الحساب" }),
+    ico("◉", "الحساب الشخصي", "الاسم والجوال وكلمة المرور", openAccount),
+    ico("◔", "الإشعارات", "العروض والتخفيضات وحالة الطلب", openNotif),
+    ico("♪", "الصوت", "صوت الخلفية وتجربته", openAudioSet),
+    el("div", { class: "hubsec", text: "المتجر" }),
+    ico("✦", "المظهر", "الألوان وحجم الخط والخلفية", () => openSettings()),
+    ico("⬡", "التسوق والطلبات", "المفضلة والعناوين والاسترجاع", openShopping),
+    ico("◈", "الخصوصية والأمان", "السياسات وحذف الحساب", openPrivacy),
+    el("div", { class: "hubsec", text: "التواصل" }),
+    ico("✎", "اقتراح", "شاركنا رأيك لتحسين المتجر", () => richFeedback("suggestions", "💡 اقتراح", ["اقتراح عام", "اقتراح منتج", "تحسين الموقع"])),
+    ico("⚑", "إبلاغ عن مشكلة", "أخبرنا بالمشكلة لنحلها", () => richFeedback("reports", "⚠️ إبلاغ", ["مشكلة في الطلب", "خطأ في السعر", "مشكلة تقنية", "أخرى"])),
+    ico("?", "تعليمات الاستخدام", "شرح طريقة الطلب والتسوق", openInstructions),
+    ico("i", "حول المتجر", "من نحن وتواصل وتقييم", openAbout),
+    el("button", { style: "width:100%;margin-top:14px", text: "إغلاق", onclick: close })
   ]);
+  getDocs(query(collection(db, "orders"), where("phone", "==", me.phone || "-"))).then(x => { ordCnt.textContent = String(x.size); }).catch(() => { ordCnt.textContent = "0"; });
+}
+
+function richFeedback(col, title, types) {
+  let type = types[0], img = "";
+  const chips = types.map((t, i) => el("button", { type: "button", class: "opt" + (i ? "" : " on"), text: t, onclick: () => { type = t; chips.forEach(c => c.classList.toggle("on", c.textContent === t)); } }));
+  const txt = el("textarea", { placeholder: "اكتب التفاصيل..." });
+  const pv = el("img", { alt: "", style: "max-width:100%;border-radius:12px;display:none;margin-top:8px" });
+  const fi = el("input", { type: "file", accept: "image/*", onchange: async e => {
+    const f = e.target.files[0]; if (!f) return;
+    toast("جارٍ رفع الصورة...");
+    const u = await uploadAv(f, 900);
+    if (u) { img = u; pv.src = u; pv.style.display = "block"; toast("تم رفع الصورة ✓"); } else toast("تعذر رفع الصورة");
+  } });
+  openPage([el("h2", { text: title }), el("label", { text: "نوع الموضوع" }), el("div", { class: "opts" }, ...chips),
+    el("label", { text: "التفاصيل" }), txt, el("label", { text: "صورة (اختياري)" }), fi, pv,
+    el("button", { class: "pri", style: "width:100%;margin-top:12px", text: "إرسال", onclick: async () => {
+      if (!txt.value.trim()) { toast("اكتب التفاصيل أولاً"); return; }
+      try { await addDoc(collection(db, col), { type, text: txt.value.trim(), image: img, name: me?.name || "زائر", phone: me?.phone || "", createdAt: serverTimestamp() }); toast("شكراً لك، وصلنا رأيك 🌹"); openHub(); }
+      catch { toast("تعذر الإرسال"); }
+    } }),
+    el("button", { style: "width:100%;margin-top:8px", text: "رجوع", onclick: openHub })]);
+}
+function openAccount() {
+  const n = el("input", { value: me.name || "" }), p = el("input", { type: "tel", dir: "ltr", inputmode: "tel", value: me.phone || "" });
+  sheetBack("👤 الحساب الشخصي", [
+    el("label", { text: "الاسم" }), n,
+    el("label", { text: "رقم الجوال (تغييره يتطلب توثيقاً جديداً)" }), p,
+    el("button", { class: "pri", style: "width:100%;margin-top:8px", text: "حفظ التعديلات", onclick: async () => {
+      const name = n.value.trim(), ph = p.value.replace(/\D/g, "");
+      if (!name || ph.length < 9) { toast(G("تأكد من الاسم والجوال", "تأكدي من الاسم والجوال")); return; }
+      const changedPhone = ph !== (me.phone || "");
+      await saveMe(changedPhone ? { name, phone: ph, phoneVerified: false, verifiedPhone: "" } : { name });
+      applyMe(); toast("تم الحفظ ✓");
+      if (changedPhone && needVerify()) openVerify(); else openAccount();
+    } }),
+    isVerified() ? el("p", { text: "✅ رقمك موثّق: " + me.phone, style: "color:var(--ok);font-weight:600" }) : el("button", { class: "pri", style: "width:100%;margin-top:6px", text: "📲 توثيق رقمي عبر واتساب", onclick: () => openVerify() }),
+    el("label", { text: "كلمة المرور" }),
+    el("button", { style: "width:100%", text: "🔑 إرسال رابط تغيير كلمة المرور للبريد", onclick: async () => {
+      try { await sendPasswordResetEmail(auth, me.email || auth.currentUser.email); toast("أُرسل الرابط إلى بريدك ✓"); } catch (e) { toast("تعذر الإرسال: " + e.code); }
+    } }),
+    el("button", { style: "width:100%;margin-top:6px", text: "🖼️ تغيير الصورة والأفاتار", onclick: () => openProfile() }),
+    el("label", { text: "الجلسة" }),
+    el("button", { style: "width:100%", text: "تسجيل الخروج", onclick: async () => { try { await signOut(auth); } catch {} me = null; ls.set("meCache", null); close(); toast("تم تسجيل الخروج"); render(); } }),
+    el("button", { class: "danger", style: "width:100%;margin-top:6px", text: "🗑️ حذف الحساب نهائياً", onclick: deleteAccount })
+  ]);
+}
+async function deleteAccount() {
+  if (!confirm("حذف حسابك نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) return;
+  try { await deleteDoc(doc(db, "customers", me.id)); await deleteUser(auth.currentUser); }
+  catch (e) { toast(e.code === "auth/requires-recent-login" ? "سجّل دخولك من جديد ثم أعد الحذف" : "تعذر الحذف: " + e.code); if (e.code !== "auth/requires-recent-login") return; }
+  try { await signOut(auth); } catch {}
+  me = null; ls.set("meCache", null); close(); toast("تم حذف الحساب"); render();
+}
+function openNotif() {
+  const nf = me.settings?.notif || {};
+  const sw = (key, label, def) => {
+    const cb = el("input", { type: "checkbox" }); cb.checked = nf[key] ?? def;
+    cb.onchange = () => saveMe({ settings: { ...(me.settings || {}), notif: { ...(me.settings?.notif || {}), [key]: cb.checked } } });
+    return el("label", { class: "swrow" }, el("span", { text: label }), el("span", { class: "swt" }, cb, el("span")));
+  };
+  sheetBack("🔔 الإشعارات", [
+    sw("offers", "إشعارات العروض الجديدة", true),
+    sw("discounts", "إشعارات التخفيضات", true),
+    sw("status", "إشعارات حالة الطلب", true),
+    el("p", { class: "muted", style: "font-size:.8rem", text: "تُحفظ تفضيلاتك هنا. ستُفعّل الإشعارات الفورية لاحقاً." })
+  ]);
+}
+function openAudioSet() {
+  const on = el("input", { type: "checkbox" }); on.checked = me.settings?.audioOn !== false;
+  on.onchange = () => { saveMe({ settings: { ...(me.settings || {}), audioOn: on.checked } }); if (!on.checked && aState.el) { aState.el.remove?.(); aState.el = null; aState.started = false; $("aubox").replaceChildren(); } else audioStart(); };
+  const aud = el("input", { placeholder: "رابط يوتيوب أو سبوتيفاي أو ملف صوت مباشر", value: me.settings?.audio || "" });
+  sheetBack("🎵 الصوت", [
+    el("label", { class: "swrow" }, el("span", { text: "تشغيل صوت الخلفية" }), el("span", { class: "swt" }, on, el("span"))),
+    el("label", { text: "رابط الصوت" }), aud,
+    el("button", { class: "pri", style: "width:100%;margin-top:8px", text: "حفظ الصوت", onclick: async () => {
+      const v = aud.value.trim();
+      if (v && !audioInfo(v)) { toast("هذا الرابط غير مدعوم"); return; }
+      await saveMe({ settings: { ...(me.settings || {}), audio: v } });
+      aState.started = false; aState.el = null; $("aubox").replaceChildren(); gestured = true; audioStart(); aUi();
+      toast("تم حفظ صوت الخلفية ✓"); openAudioSet();
+    } }),
+    el("button", { style: "width:100%;margin-top:6px", text: "▶️ تجربة الصوت", onclick: () => { if (!me.settings?.audio) { toast("احفظ رابط الصوت أولاً"); return; } aState.started = false; aState.el = null; $("aubox").replaceChildren(); aState.muted = false; ls.set("am", false); gestured = true; audioStart(); aUi(); } })
+  ]);
+}
+function openShopping() {
+  sheetBack("⬡ التسوق والطلبات", [
+    ico("♡", "المفضلة", "منتجاتك المحفوظة", openFavs),
+    ico("▤", "سجل الطلبات", "طلباتك السابقة وتقييمها", openProfile),
+    ico("⌂", "عناوين التوصيل المحفوظة", "أضيفي عناوينك للطلب بسرعة", openAddresses),
+    ico("↺", "سياسة الاستبدال والاسترجاع", null, () => openText("↺ سياسة الاستبدال والاسترجاع", S.returnPolicy || TXT_DEFAULT.returns))
+  ]);
+}
+function openAddresses() {
+  const list = (me.settings && me.settings.addresses) || [];
+  const lab = el("input", { placeholder: "الاسم (مثال: البيت)" }), tx = el("textarea", { placeholder: "العنوان التفصيلي" });
+  openPage([el("h2", { text: "⌂ عناوين التوصيل" }),
+    ...(list.length ? list.map((a, i) => el("div", { class: "hubrow" }, el("span", { class: "hubtxt" }, el("b", { text: a.label || "عنوان" }), el("small", { text: a.text || "" })),
+      el("button", { class: "danger", text: "حذف", onclick: async () => { await saveMe({ settings: { ...(me.settings || {}), addresses: list.filter((_, j) => j !== i) } }); openAddresses(); } }))) : [el("p", { class: "muted", text: "لا توجد عناوين محفوظة" })]),
+    el("label", { text: "إضافة عنوان جديد" }), lab, tx,
+    el("button", { class: "pri", style: "width:100%", text: "حفظ العنوان", onclick: async () => {
+      if (!tx.value.trim()) { toast("اكتب العنوان أولاً"); return; }
+      await saveMe({ settings: { ...(me.settings || {}), addresses: [...list, { label: lab.value.trim() || "عنوان", text: tx.value.trim() }] } });
+      toast("تم حفظ العنوان ✓"); openAddresses();
+    } }),
+    el("button", { style: "width:100%;margin-top:8px", text: "رجوع", onclick: openShopping })]);
+}
+
+function openFavs() {
+  const fav = prods.filter(p => (me.favs || []).includes(p.id));
+  openPage([el("h2", { text: "♡ المفضلة" }), ...(fav.length ? [el("div", { class: "grid" }, ...fav.map(card))] : [el("p", { class: "muted", text: "لا توجد منتجات مفضلة بعد." })]),
+    el("button", { style: "width:100%;margin-top:12px", text: "رجوع", onclick: openShopping })]);
+}
+function openPrivacy() {
+  sheetBack("◈ الخصوصية والأمان", [
+    ico("§", "سياسة الخصوصية", null, () => openText("سياسة الخصوصية", S.privacyText || TXT_DEFAULT.privacy)),
+    ico("¶", "شروط الاستخدام", null, () => openText("شروط الاستخدام", S.termsText || TXT_DEFAULT.terms)),
+    ico("⟲", "إدارة بيانات الحساب", "تعديل البيانات أو الحذف", openAccount)
+  ]);
+}
+function openText(title, body) { sheetBack(title, [el("p", { text: body, style: "white-space:pre-line;line-height:1.9" })]); }
+function openAbout() {
+  const wa = $("wafab");
+  sheetBack("ℹ️ حول المتجر", [
+    el("p", { text: S.aboutText || TXT_DEFAULT.about, style: "white-space:pre-line;line-height:1.9" }),
+    el("button", { class: "pri", style: "width:100%", text: "💬 تواصل معنا عبر واتساب", onclick: () => { if (wa && !wa.hidden) window.open(wa.href, "_blank"); else toast("واتساب المتجر غير متاح حالياً"); } }),
+    el("button", { style: "width:100%;margin-top:6px", text: "⭐ تقييم المتجر", onclick: rateStore }),
+    el("button", { style: "width:100%;margin-top:6px", text: "↗ مشاركة المتجر", onclick: () => { const u = location.origin + location.pathname; if (navigator.share) navigator.share({ title: S.storeName || "المتجر", url: u }).catch(() => {}); else navigator.clipboard?.writeText(u).then(() => toast("تم نسخ الرابط")); } }),
+    el("p", { class: "muted", style: "text-align:center;margin-top:14px", text: `رقم إصدار الموقع: ${APP_VERSION}` })
+  ]);
+}
+function rateStore() {
+  let stars = 5; const txt = el("textarea", { placeholder: "رأيك في المتجر (اختياري)" });
+  const sb = [1, 2, 3, 4, 5].map(n => el("button", { type: "button", class: "opt" + (n === 5 ? " on" : ""), text: "⭐".repeat(n), onclick: () => { stars = n; sb.forEach((b, i) => b.classList.toggle("on", i < n)); } }));
+  openPage([el("h2", { text: "⭐ تقييم المتجر" }), el("div", { class: "opts" }, ...sb), txt,
+    el("button", { class: "pri", style: "width:100%;margin-top:12px", text: "إرسال", onclick: async () => {
+      try { await addDoc(collection(db, "ratings"), { type: "store", stars, text: txt.value.trim(), name: me?.name || "زائر", phone: me?.phone || "", createdAt: serverTimestamp() }); toast("شكراً لتقييمك ✓"); openAbout(); }
+      catch { toast("تعذر الإرسال"); }
+    } }),
+    el("button", { style: "width:100%;margin-top:8px", text: "رجوع", onclick: openAbout })]);
 }
 function openInstructions() {
   const tuts = (S.tutorials || "").split("\n").map(x => x.trim()).filter(Boolean);
-  open([
+  const steps = (S.stepImages || "").split("\n").map(x => x.trim()).filter(Boolean);
+  openPage([
     el("h2", { text: "📖 تعليمات الاستخدام" }),
     el("p", { text: S.instructions || "لا توجد تعليمات بعد.", style: "white-space:pre-line;line-height:1.9" }),
+    ...steps.map((u, i) => el("div", {}, el("small", { class: "muted", text: `الخطوة ${i + 1}` }), el("img", { src: u, alt: "", style: "width:100%;border-radius:14px;margin:6px 0 12px" }))),
     ...(tuts.length ? [el("label", { text: "🎬 فيديوهات الشروحات" }), ...tuts.map((u, i) => el("a", { class: "pri", href: u, target: "_blank", rel: "noopener", style: "display:block;text-align:center;padding:12px;border-radius:12px;margin:6px 0;text-decoration:none", text: `▶️ شرح ${i + 1}` }))] : []),
-    el("button", { style: "width:100%;margin-top:8px", text: "رجوع", onclick: () => openHub() })
+    el("button", { style: "width:100%;margin-top:8px", text: "رجوع", onclick: openHub })
   ]);
 }
 
@@ -447,7 +639,7 @@ const aState = { started: false, el: null, kind: "", src: "", muted: ls.get("am"
 function ytCmd(f) { const w = aState.el?.contentWindow; if (w && aState.kind === "yt") w.postMessage(JSON.stringify({ event: "command", func: f, args: [] }), "*"); }
 function aUi() { const b = $("aubtn"); if (b) { b.textContent = aState.muted ? "🔇" : "🔊"; b.title = aState.muted ? "تشغيل الصوت" : "كتم الصوت"; } }
 function audioStart() {
-  if (aState.started || !gestured) return;
+  if (aState.started || !gestured || me?.settings?.audioOn === false) return;
   const u = me?.settings?.audio; if (!u) return;
   const info = audioInfo(u); if (!info) return;
   aState.started = true; aState.kind = info.t; aState.src = info.src;
@@ -475,7 +667,7 @@ function audioToggle() {
   aUi();
 }
 $("aubtn").onclick = audioToggle;
-$("aubtn").hidden = false;
+
 document.addEventListener("pointerdown", e => { if (e.target.closest?.("#aubtn")) return; gestured = true; audioStart(); }, { passive: true });
 
 /* ===== تصفية بلد المنشأ ===== */
@@ -626,7 +818,7 @@ function openSettings() {
     ...(S.themesText || "").split("\n").map(l => l.split("|")).filter(a => a[1] && /^#[0-9a-f]{3,8}$/i.test(a[1].trim())).map(a => [a[0].trim(), a[1].trim()])];
   const cb = el("input", { type: "checkbox" }); cb.checked = ls.get("bgOn", true);
   cb.onchange = () => { ls.set("bgOn", cb.checked); location.reload(); };
-  open([el("h2", { text: "⚙️ إعدادات المظهر" }), el("label", { text: "الثيم" }),
+  openPage([el("h2", { text: "⚙️ إعدادات المظهر" }), el("label", { text: "حجم الخط" }), el("div", { class: "opts" }, ...[["صغير", .9], ["عادي", 1], ["كبير", 1.15]].map(([t, z]) => el("button", { type: "button", class: "opt" + (Math.abs(zoomNow() - z) < .01 ? " on" : ""), text: t, onclick: () => { setZoom(z); openSettings(); } }))), el("label", { text: "الثيم" }),
     el("div", { class: "opts" }, ...th.map(([n, c]) => el("button", { text: n, style: `border-color:${c};color:${c}`, onclick: () => { ls.set("th", c); setColor(c); toast("تم تطبيق الثيم ✓"); } }))),
     el("label", { class: "chk", style: "margin-top:14px" }, cb, " الخلفية المتحركة"),
     el("button", { text: "الثيم الافتراضي", style: "margin-top:8px", onclick: () => { ls.set("th", ""); location.reload(); } }),
@@ -722,7 +914,7 @@ async function loadMe() { await new Promise(r => { const un = onAuthStateChanged
 let hot = {}; const hotIds = () => Object.entries(hot).sort((a, b) => b[1] - a[1]).slice(0, 6).map(e => e[0]);
 async function loadHot() { try { const hr = await getDoc(doc(db, "settings", "hotreset")); hotResetMs = hr.exists() ? (hr.data().at?.toMillis?.() || 0) : 0; } catch {} try { const s = await getDocs(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5)))); const m = {}; s.docs.filter(soldOk).forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; } catch {} }
 const G = (m, f) => (me?.gender || ls.get("g")) === "f" ? f : m;
-const setZoom = z => { document.body.style.zoom = z; ls.set("zoom", z); }; const zoomNow = () => Number(ls.get("zoom", 1)) || 1; setZoom(zoomNow());
+const setZoom = z => { document.body.style.zoom = z; ls.set("zoom", z); document.body.classList.toggle("zsmall", z < 1); document.body.classList.toggle("zlarge", z > 1); }; const zoomNow = () => Number(ls.get("zoom", 1)) || 1; setZoom(zoomNow());
 const avBadge = a => /^https?:/.test(a || "") ? el("img", { src: a, alt: "", style: "width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle" }) : (a || "👤");
 async function uploadAv(file, max = 256) { if (!file) return ""; try { const bmp = await createImageBitmap(file), k = Math.min(1, max / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height); const b = await new Promise(r => c.toBlob(r, "image/jpeg", .8)); const fd = new FormData(); fd.append("image", b, "a.jpg"); const r = await (await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: "POST", body: fd })).json(); return r?.data?.url || ""; } catch { toast("تعذر رفع الصورة"); return ""; } }
 async function syncMe(u) {
@@ -857,8 +1049,8 @@ async function commentsSheet(p) {
   const send = el("button", { class: "pri", text: "نشر", style: "width:100%;margin-top:8px", onclick: async () => { const t = inp.value.trim(); if (!t) return;
     try { await addDoc(collection(db, "comments"), { pid: p.id, pname: p.name, cid: me.id, phone: me.phone || "", name: me.name, gender: me.gender, avatar: me.avatar || "", text: t, createdAt: serverTimestamp() }); commentsSheet(p); } catch { toast("تعذر النشر"); } } });
   open([el("h2", { text: "💬 التعليقات" }), box, me ? el("div", {}, inp, send) : el("button", { class: "pri", text: G("سجّل دخول لتعلّق", "سجّلي دخول لتعلّقي"), style: "width:100%", onclick: () => authSheet(() => commentsSheet(p)) }), el("button", { text: "رجوع", style: "width:100%;margin-top:8px", onclick: () => openProduct(p) })]);
-  try { const s = await getDocs(query(collection(db, "comments"), where("pid", "==", p.id))); const l = s.docs.map(d => d.data()).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    box.replaceChildren(...(l.length ? l.map(c => el("div", { class: "cm" }, el("b", {}, avBadge(c.avatar), " " + c.name), el("div", { text: c.text }), c.reply ? el("div", { text: "↩️ رد المتجر: " + c.reply, style: "color:var(--accent);font-size:.9em" }) : null)) : [el("small", { text: "لا توجد تعليقات بعد" })])); } catch { box.textContent = "تعذر التحميل"; }
+  try { const s = await getDocs(query(collection(db, "comments"), where("pid", "==", p.id))); const l = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    box.replaceChildren(...(l.length ? l.map(c => el("div", { class: "cm" }, el("b", {}, avBadge(c.avatar), " " + c.name), el("div", { text: c.text }), (c.cid === me?.id || (!c.cid && me && c.name === me.name)) ? el("button", { class: "danger", style: "margin-top:6px", text: "🗑️ حذف تعليقي", onclick: async () => { if (!confirm("حذف تعليقك؟")) return; try { await deleteDoc(doc(db, "comments", c.id)); commentsSheet(p); } catch (e) { toast("تعذر الحذف: " + (e.code || e.message)); } } }) : null, c.reply ? el("div", { text: "↩️ رد المتجر: " + c.reply, style: "color:var(--accent);font-size:.9em" }) : null)) : [el("small", { text: "لا توجد تعليقات بعد" })])); } catch { box.textContent = "تعذر التحميل"; }
 }
 function feedback(col, title, ph, thanks) {
   const t = el("textarea", { placeholder: ph });
@@ -962,7 +1154,7 @@ function startLive() {
 }
 const feeFor = (sub, pick, d) => pick ? 0 : (Number(S.freeFrom) > 0 && sub >= Number(S.freeFrom)) ? 0 : d ? (Number(lines2(S.districts).map(l => l.split("|")).find(a => a[0].trim() === d)?.[1]) || Number(S.deliveryFee) || 0) : Number(S.deliveryFee) || 0;
 /* النوافذ */
-const open = (nodes, drawer = false) => { $("ov").className = "ov" + (drawer ? " drawer" : ""); $("ov").style.backgroundImage = ""; $("sheet").style.minHeight = ""; $("sheet").replaceChildren(...nodes); $("ov").hidden = false; };
+const open = (nodes, drawer = false) => { $("sheet").classList.remove("glass"); $("ov").className = "ov" + (drawer ? " drawer" : ""); $("ov").style.backgroundImage = ""; $("sheet").style.minHeight = ""; $("sheet").replaceChildren(...nodes); $("ov").hidden = false; };
 const close = () => { $("ov").hidden = true; $("sheet").replaceChildren(); window._unsub?.(); window._unsub = null; _cu?.(); _cu = null; };
 $("ov").onclick = e => { if (e.target.id === "ov") close(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
