@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
+<link rel="dns-prefetch" href="https://i.ibb.co">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://wsrv.nl" crossorigin><link rel="preconnect" href="https://i.ibb.co" crossorigin><link rel="preconnect" href="https://www.gstatic.com" crossorigin><link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
@@ -199,6 +203,7 @@ body.zsmall .grid{grid-template-columns:repeat(2,1fr)!important}
 body.zsmall .pc img{aspect-ratio:auto;height:120px}
 body.zlarge .grid{grid-template-columns:1fr!important}
 @media(min-width:700px){body.zlarge .grid{grid-template-columns:repeat(2,1fr)!important}}
+.sa-flag{flex:0 0 auto;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 </style>
 </head>
 <body>
@@ -220,6 +225,7 @@ body.zlarge .grid{grid-template-columns:1fr!important}
 <header>
   <div class="wrap hd">
     <span class="menuwrap"><button id="menuBtn" class="menubtn" aria-label="الأقسام">☰</button><span id="tip" class="tip" hidden>تصفح بالأقسام من هنا</span></span>
+    <svg class="sa-flag" viewBox="0 0 30 20" width="30" height="20" role="img" aria-label="علم المملكة العربية السعودية"><rect width="30" height="20" rx="2" fill="#006C35"/><text x="15" y="8.6" text-anchor="middle" font-size="3.9" fill="#fff" font-family="serif">لا إله إلا الله</text><rect x="8" y="12.6" width="14" height="1.5" fill="#fff"/></svg>
     <img id="logo" alt="" hidden style="height:38px;border-radius:8px"><h1 id="brand">أسطورة العروس</h1>
     <div class="sw"><input id="q" type="search" placeholder="ابحث عن منتج..." autocomplete="off"><div id="sug" class="sug" hidden></div></div>
     <button id="themeBtn" aria-label="المظهر">🌙</button>
@@ -472,7 +478,7 @@ function openHub() {
     ico("i", "حول المتجر", "من نحن وتواصل وتقييم", openAbout),
     el("button", { style: "width:100%;margin-top:14px", text: "إغلاق", onclick: close })
   ]);
-  getDocs(query(collection(db, "orders"), where("phone", "==", me.phone || "-"))).then(x => { ordCnt.textContent = String(x.size); }).catch(() => { ordCnt.textContent = "0"; });
+  getDocs(query(collection(db, "orders"), where("uid", "==", me.id))).then(x => { ordCnt.textContent = String(x.size); }).catch(() => { ordCnt.textContent = "0"; });
 }
 
 function richFeedback(col, title, types) {
@@ -504,7 +510,7 @@ function openAccount() {
       const name = n.value.trim(), ph = p.value.replace(/\D/g, "");
       if (!name || ph.length < 9) { toast(G("تأكد من الاسم والجوال", "تأكدي من الاسم والجوال")); return; }
       const changedPhone = ph !== (me.phone || "");
-      await saveMe(changedPhone ? { name, phone: ph, phoneVerified: false, verifiedPhone: "" } : { name });
+      await saveMe(changedPhone ? { name, phone: ph } : { name });
       applyMe(); toast("تم الحفظ ✓");
       if (changedPhone && needVerify()) openVerify(); else openAccount();
     } }),
@@ -734,12 +740,21 @@ function rateSheet(oid, o, type) {
 
 /* المنتجات */
 function matches(p) {
-  if (term && !((p.name || "") + " " + (p.keywords || "")).toLowerCase().includes(term.toLowerCase())) return false;
+  if (term) { const tq = term.toLowerCase(); const hit = ((p.name || "") + " " + (p.keywords || "")).toLowerCase().includes(tq) || (p.flavors || []).some(f => (f.name || "").toLowerCase().includes(tq)); if (!hit) return false; }
   if (selCountry && (p.country || "") !== selCountry) return false;
   if (selSub) return p.categoryId === selSub;
   if (selCat) { const ids = [selCat, ...cats.filter(c => c.parentId === selCat).map(c => c.id)]; return ids.includes(p.categoryId); }
   if (selType) return typeOfCat(p.categoryId) === selType;
   return true;
+}
+function priceLabel(p) {
+  const ws = (p.sizes || []).find(isWSize);
+  if (p.useScale || ws) {
+    const perKg = p.useScale && Number(p.kiloPrice) > 0 ? Number(p.kiloPrice) : (ws && ws.price ? ws.price * 1000 / wGrams(ws) : 0);
+    return `⚖️ ${money(perKg)} / كيلو`;
+  }
+  const small = (p.sizes || []).filter(x => x.price > 0).sort((a, b) => a.price - b.price)[0];
+  return small ? `من ${money(small.price)}${small.label ? " (" + small.label + ")" : ""}` : `من ${money(p.minPrice || 0)}`;
 }
 function card(p) {
   const out = p.status === "soldout";
@@ -747,18 +762,28 @@ function card(p) {
     img(p.images?.[0]),
     out ? null : el("button", { class: "qa", text: "+", "aria-label": "إضافة", onclick: e => { e.stopPropagation(); quickAdd(p); } }),
     out ? el("span", { class: "tag out", text: "نافد" }) : hotIds().includes(p.id) ? el("span", { class: "tag", text: "🔥 الأكثر طلباً" }) : p.badge ? el("span", { class: "tag", text: p.badge }) : p.featured ? el("span", { class: "tag", text: "مميز" }) : null,
-    el("div", { class: "b" }, el("p", { class: "n", text: p.name }), el("div", { class: "c", text: p.categoryName || "" }), el("div", { class: "p" }, p.oldPrice > p.minPrice ? el("s", { text: money(p.oldPrice) + " ", style: "color:var(--muted);font-size:.7em" }) : null, "من " + money(p.minPrice || 0))));
+    el("div", { class: "b" }, el("p", { class: "n", text: p.name }), el("div", { class: "c", text: p.categoryName || "" }), el("div", { class: "p" }, p.oldPrice > p.minPrice ? el("s", { text: money(p.oldPrice) + " ", style: "color:var(--muted);font-size:.7em" }) : null, priceLabel(p))));
+}
+function flavorVirtual(p, f) {
+  return { ...p, name: f.name, images: [f.image || (p.images || [])[0] || ""], minPrice: f.extraPrice > 0 ? f.extraPrice : p.minPrice, oldPrice: 0, badge: "", featured: false, keywords: "", _parent: p, _flavor: f.name };
 }
 function render() {
   $("hbox").hidden = !(view === "home" && !selCat && !selType && !selCountry && !term);
   let list = prods.filter(matches).sort(sorter);
+  if (term) {
+    const tq = term.toLowerCase();
+    const named = list.filter(p => ((p.name || "") + " " + (p.keywords || "")).toLowerCase().includes(tq));
+    const fl = [];
+    list.forEach(p => (p.flavors || []).forEach(f => { if ((f.name || "").toLowerCase().includes(tq)) fl.push(flavorVirtual(p, f)); }));
+    list = [...fl, ...named.filter(p => !fl.some(v => v._parent && v._parent.id === p.id))];
+  }
   if (view === "offers") list = list.filter(p => p.offer);
   if (view === "fav") list = list.filter(p => favs().includes(p.id));
   if (view === "new") list = [...list].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 12);
   if (view === "sug") list = list.filter(p => p.featured).concat(list.filter(p => !p.featured)).slice(0, 12);
-  const showFeat = S.showFeat !== false && view === "home" && !selCat && !selType && !selCountry && !term && list.some(p => p.featured);
+  const showFeat = S.showFeat !== false && view === "home" && !selCat && !selCountry && !term && list.some(p => p.featured);
   $("featWrap").hidden = !showFeat;
-  const hl = hotIds().map(id => prods.find(p => p.id === id)).filter(Boolean); $("hotWrap").hidden = !(view === "home" && !selCat && !selType && !selCountry && !term && hl.length);
+  const hl = hotIds().map(id => prods.find(p => p.id === id)).filter(Boolean).filter(matches); $("hotWrap").hidden = !(view === "home" && !selCat && !selCountry && !term && hl.length);
   if (!$("hotWrap").hidden) $("hot").replaceChildren(...hl.map(card));
   if (showFeat) $("feat").replaceChildren(...list.filter(p => p.featured).map(card));
   $("allT").textContent = term ? `نتائج البحث (${list.length})` : ({ offers: "🔥 العروض", new: "✨ جديدنا", fav: "❤️ مفضلتي" }[view] || "كل المنتجات");
@@ -802,6 +827,7 @@ function startBg(list) {
     if (i === list.length) setTimeout(() => { tr.style.transition = "none"; tr.style.transform = "translateX(0)"; i = 0; }, 1450); }, 5000);
 }
 function quickAdd(p) {
+  if (p._parent) return openProduct(p);
   const s = p.sizes || [];
   if (s.length === 1 && !(p.flavors || []).length && s[0].stock !== 0 && !isWSize(s[0])) {
     const key = [p.id, s[0].label, "", ""].join("|"), ex = cart.find(i => i.key === key);
@@ -1031,7 +1057,7 @@ async function openProfile() {
     el("button", { style: "width:100%;margin-top:10px", text: `❤️ مفضلتي (${(me.favs || []).length})`, onclick: () => { close(); setView("fav"); } }),
     el("label", { text: "ردود المتجر على بلاغاتك واقتراحاتك" }), reps, el("label", { text: "طلباتي" }), ords,
     el("button", { text: "تسجيل الخروج", style: "width:100%;margin-top:10px", onclick: () => signOut(auth).then(() => location.reload()) }), el("button", { class: "pri", text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
-  try { const s = await getDocs(query(collection(db, "orders"), where("phone", "==", me.phone || "-")));
+  try { const s = await getDocs(query(collection(db, "orders"), where("uid", "==", me.id)));
     ords.replaceChildren(...(s.docs.length ? s.docs.flatMap(d => { const o = d.data(); return [el("div", { style: "display:flex;gap:6px;margin-bottom:6px" }, el("button", { style: "flex:1;text-align:right", text: `${money(o.total || 0)} — ${ST_ALL[o.status] || o.status}`, onclick: () => orderView("o", d.id) }), el("button", { class: "pri", text: "🔁 أعد طلبي", onclick: () => reorder(o) })), ...ratingRow(d.id, o)]; }) : [el("small", { text: "لا توجد طلبات بعد" })])); } catch { ords.textContent = "تعذر التحميل"; }
   try { const rs = []; for (const col of ["reports", "suggestions"]) (await getDocs(query(collection(db, col), where("phone", "==", me.phone || "-")))).docs.forEach(d => { const x = d.data(); if (x.reply) rs.push(el("div", { class: "cm" }, el("small", { text: x.text }), el("div", { text: "↩️ " + x.reply }))); });
     reps.replaceChildren(...(rs.length ? rs : [el("small", { text: "لا توجد ردود بعد" })])); } catch {}
@@ -1163,13 +1189,17 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
 const isWSize = s => !!s && (s.unit === "كيلو" || s.unit === "جرام");
 const wGrams = s => (s.unit === "كيلو" ? 1000 : 1) * (Number(s.amount) || 1);
 function openProduct(p) {
+  let pre = "";
+  if (p._parent) { pre = p._flavor; p = p._parent; }
   const allSizes = p.sizes || [], flavors = p.flavors || [];
-  const scaleSize = allSizes.find(isWSize) || null;
+  let scaleSize = allSizes.find(isWSize) || null;
+  if (!scaleSize && p.useScale) scaleSize = { amount: 1, unit: "كيلو", price: Number(p.kiloPrice) || 0, label: "1 كيلو", stock: 1 };
   const plainSizes = allSizes.filter(s => !isWSize(s));
   const sizeOpts = [...plainSizes, ...(scaleSize ? [scaleSize] : [])];
   let size = plainSizes.find(s => s.stock !== 0) || plainSizes[0] || scaleSize || null;
   let qty = 1, scaleAmt = 0;
   const flQty = {};
+  if (pre) flQty[pre] = 1;
   const pricePerG = scaleSize && scaleSize.price > 0 ? scaleSize.price / wGrams(scaleSize) : 0;
   const isScale = () => !!scaleSize && size === scaleSize;
   const scaleGrams = () => (scaleAmt > 0 && pricePerG > 0 ? Math.round(scaleAmt / pricePerG) : 0);
