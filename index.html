@@ -748,9 +748,8 @@ function matches(p) {
   return true;
 }
 function priceLabel(p) {
-  const ws = (p.sizes || []).find(isWSize);
-  if (p.useScale || ws) {
-    const perKg = p.useScale && Number(p.kiloPrice) > 0 ? Number(p.kiloPrice) : (ws && ws.price ? ws.price * 1000 / wGrams(ws) : 0);
+  if (p.useScale) {
+    const perKg = Number(p.kiloPrice) || 0;
     return `⚖️ ${money(perKg)} / كيلو`;
   }
   const small = (p.sizes || []).filter(x => x.price > 0).sort((a, b) => a.price - b.price)[0];
@@ -829,7 +828,7 @@ function startBg(list) {
 function quickAdd(p) {
   if (p._parent) return openProduct(p);
   const s = p.sizes || [];
-  if (s.length === 1 && !(p.flavors || []).length && s[0].stock !== 0 && !isWSize(s[0])) {
+  if (s.length === 1 && !(p.flavors || []).length && s[0].stock !== 0 && !(p.useScale && isWSize(s[0]))) {
     const key = [p.id, s[0].label, "", ""].join("|"), ex = cart.find(i => i.key === key);
     if (ex) ex.qty++; else cart.push({ key, id: p.id, name: p.name, image: p.images?.[0] || "", size: s[0].label, flavor: "", note: "", unit: s[0].price, qty: 1 });
     saveCart(); toast("تمت الإضافة ✓");
@@ -1192,9 +1191,8 @@ function openProduct(p) {
   let pre = "";
   if (p._parent) { pre = p._flavor; p = p._parent; }
   const allSizes = p.sizes || [], flavors = p.flavors || [];
-  let scaleSize = allSizes.find(isWSize) || null;
-  if (!scaleSize && p.useScale) scaleSize = { amount: 1, unit: "كيلو", price: Number(p.kiloPrice) || 0, label: "1 كيلو", stock: 1 };
-  const plainSizes = allSizes.filter(s => !isWSize(s));
+  let scaleSize = p.useScale ? (allSizes.find(isWSize) || { amount: 1, unit: "كيلو", price: Number(p.kiloPrice) || 0, label: "1 كيلو", stock: 1 }) : null;
+  const plainSizes = allSizes.filter(s => !(p.useScale && isWSize(s)));
   const sizeOpts = [...plainSizes, ...(scaleSize ? [scaleSize] : [])];
   let size = plainSizes.find(s => s.stock !== 0) || plainSizes[0] || scaleSize || null;
   let qty = 1, scaleAmt = 0;
@@ -1237,7 +1235,7 @@ function openProduct(p) {
   const qtyRow = el("div", { class: "qty" }, el("button", { text: "−", onclick: () => { qty = Math.max(1, qty - 1); refresh(); } }), qtyEl, el("button", { text: "+", onclick: () => { qty = Math.min(50, qty + 1); refresh(); } }));
   const nodes = [el("button", { class: "xbtn", text: "✕", "aria-label": "إغلاق", onclick: close }), main, thumbs, el("div", { style: "display:flex;justify-content:space-between;align-items:center" }, el("h2", { text: p.name, style: "margin:6px 0" }), heartBtn(p)), el("div", { class: "c", style: "color:var(--muted)", text: [p.categoryName, p.country].filter(Boolean).join(" • ") }), priceEl];
   if (sizeOpts.length > 1 || (sizeOpts.length === 1 && !scaleSize))
-    nodes.push(el("label", { text: "الحجم" }), optRow(sizeOpts, () => size, v => { size = v; if (scaleBox) scaleBox.hidden = !isScale(); }, s => isWSize(s) ? "⚖️ بالميزان" : `${s.label} — ${money(s.price)}`, s => s.stock === 0));
+    nodes.push(el("label", { text: "الحجم" }), optRow(sizeOpts, () => size, v => { size = v; if (scaleBox) scaleBox.hidden = !isScale(); }, s => s === scaleSize ? "⚖️ بالميزان" : `${s.label} — ${money(s.price)}`, s => s.stock === 0));
   if (scaleBox) nodes.push(scaleBox);
   if (flavors.length) {
     const fl = el("div", { class: "flrow" });
