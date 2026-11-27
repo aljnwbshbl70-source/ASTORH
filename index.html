@@ -805,6 +805,28 @@ function card(p) {
     out ? el("span", { class: "tag out", text: "نافد" }) : hotIds().includes(p.id) ? el("span", { class: "tag", text: "🔥 الأكثر طلباً" }) : p.badge ? el("span", { class: "tag", text: p.badge }) : p.featured ? el("span", { class: "tag", text: "مميز" }) : null,
     el("div", { class: "b" }, el("p", { class: "n", text: p.name }), el("div", { class: "c", text: p.categoryName || "" }), el("div", { class: "p" }, p.oldPrice > p.minPrice ? el("s", { text: money(p.oldPrice) + " ", style: "color:var(--muted);font-size:.7em" }) : null, priceLabel(p))));
 }
+let sIdx = null, sIdxP = null;
+/* فهرس البحث: وثائق catalogIndex (قراءة واحدة لكل وثيقة عند أول بحث في الزيارة) */
+function ensureIndex() {
+  if (sIdx || sIdxP) return;
+  sIdxP = getDocs(collection(db, "catalogIndex"))
+    .then(snap => { sIdx = snap.docs.flatMap(d => d.data().items || []); render(); })
+    .catch(() => { sIdxP = null; });
+}
+/* البحث في الفهرس الخفيف: نتائج جزئية تُفتح كاملة عند الضغط فقط */
+function searchIdx(term) {
+  if (!sIdx) return [];
+  const tq = normAr(term);
+  return sIdx
+    .filter(it => (!sType || it.t === sType) && (!sSub || it.c === sSub))
+    .flatMap(it => {
+      const base = { id: it.id, name: it.name, images: it.img ? [it.img] : [], minPrice: it.price, categoryId: it.c, featured: false, _partial: true };
+      const out = [];
+      if (hitStr(it.n, tq)) out.push(base);
+      (it.fl || []).forEach(f => { if (hitStr(normAr(f.name), tq)) out.push({ ...base, name: f.name, images: [f.img || it.img].filter(Boolean), minPrice: f.price ?? it.price, _parent: base, _flavor: f.name }); });
+      return out;
+    });
+}
 function flavorVirtual(p, f) {
   return { ...p, name: f.name, images: [f.image || (p.images || [])[0] || ""], minPrice: f.extraPrice > 0 ? f.extraPrice : p.minPrice, oldPrice: 0, badge: "", featured: false, keywords: "", _parent: p, _flavor: f.name };
 }
@@ -898,7 +920,8 @@ function render() {
   $("list").hidden = browse;
   $("catBar").hidden = browse || view !== "home";
   if (selCat !== window._lastCat) { window._lastCat = selCat; if (selCat) showPick(((cats.find(c => c.id === selCat)) || {}).name || ""); }
-  if (view !== "home" || term || selCountry || selType) ensureAll();
+  if (term) ensureIndex();
+  if (view !== "home" || selCountry || selType) ensureAll();
   else if (selCat && !allLoaded) ensureCat(selCat);
   hydrateHot();
   const more = !!selCat && !term && !allLoaded && prods.filter(p => catIdsOf(selCat).includes(p.categoryId)).length >= (catLimit[selCat] || 30);
@@ -910,13 +933,7 @@ function render() {
 function renderProducts() {
   $("hbox").hidden = !(view === "home" && !selCat && !selType && !selCountry && !term);
   let list = prods.filter(matches).sort(sorter);
-  if (term) {
-    const tq = normAr(term);
-    const named = list.filter(p => hitStr(normAr((p.name || "") + " " + (p.keywords || "")), tq));
-    const fl = [];
-    list.forEach(p => (p.flavors || []).forEach(f => { if (hitStr(normAr(f.name), tq)) fl.push(flavorVirtual(p, f)); }));
-    list = [...fl, ...named.filter(p => !fl.some(v => v._parent && v._parent.id === p.id))];
-  }
+  if (term) list = searchIdx(term);
   if (view === "offers") list = list.filter(p => p.offer);
   if (view === "fav") list = list.filter(p => favs().includes(p.id));
   if (view === "new") list = [...list].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 12);
@@ -1329,6 +1346,16 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
 const isWSize = s => !!s && (s.unit === "كيلو" || s.unit === "جرام");
 const wGrams = s => (s.unit === "كيلو" ? 1000 : 1) * (Number(s.amount) || 1);
 function openProduct(p) {
+  if (p._partial) {
+    const pid = p._parent ? p._parent.id : p.id, fl = p._flavor || "";
+    getDoc(doc(db, "products", pid)).then(d => {
+      if (!d.exists()) { toast("هذا المنتج لم يعد متوفراً"); return; }
+      const full = { id: d.id, ...d.data() };
+      if (fl) openProduct(flavorVirtual(full, (full.flavors || []).find(f => f.name === fl) || { name: fl }));
+      else openProduct(full);
+    }).catch(() => toast("تعذر فتح المنتج"));
+    return;
+  }
   let pre = "";
   if (p._parent) { pre = p._flavor; p = p._parent; }
   const allSizes = p.sizes || [], flavors = p.flavors || [];
