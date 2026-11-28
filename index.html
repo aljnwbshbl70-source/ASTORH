@@ -494,6 +494,7 @@ function openHub() {
     el("h2", { text: "⚙️ الإعدادات" }), card,
     el("div", { class: "hubsec", text: "الحساب" }),
     ico("◉", "الحساب الشخصي", "الاسم والجوال وكلمة المرور", openAccount),
+    ico("▤", "طلباتي", "طلباتك وحالتها وتقييمها", openMyOrders),
     ico("◔", "الإشعارات", "العروض والتخفيضات وحالة الطلب", openNotif),
     ico("♪", "الصوت", "صوت الخلفية وتجربته", openAudioSet),
     el("div", { class: "hubsec", text: "المتجر" }),
@@ -591,6 +592,22 @@ function openAudioSet() {
     } }),
     el("button", { style: "width:100%;margin-top:6px", text: "▶️ تجربة الصوت", onclick: () => { if (!me.settings?.audio) { toast("احفظ رابط الصوت أولاً"); return; } aState.started = false; aState.el = null; $("aubox").replaceChildren(); aState.muted = false; ls.set("am", false); gestured = true; audioStart(); aUi(); } })
   ]);
+}
+async function openMyOrders() {
+  if (!me || me.new) return authSheet(openMyOrders);
+  const box = el("div", { text: "جارٍ التحميل..." });
+  openPage([el("h2", { text: "🧾 طلباتي" }), box, el("button", { style: "width:100%;margin-top:12px", text: "رجوع", onclick: openHub })]);
+  try {
+    const s = await getDocs(query(collection(db, "orders"), where("uid", "==", me.id)));
+    const rows = s.docs.sort((a, b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0)).flatMap(d => {
+      const o = d.data();
+      return [el("div", { class: "hubrow" },
+        el("span", { class: "hubtxt" }, el("b", { text: `${money(o.total || 0)} — ${ST_ALL[o.status] || o.status}` }), el("small", { text: (o.items || []).map(i => i.name).join("، ") })),
+        el("button", { class: "pri", text: "تفاصيل", onclick: () => orderView("o", d.id) }),
+        el("button", { text: "🔁", onclick: () => reorder(o) })), ...ratingRow(d.id, o)];
+    });
+    box.replaceChildren(...(rows.length ? rows : [el("small", { text: "لا توجد طلبات بعد" })]));
+  } catch { box.textContent = "تعذر التحميل"; }
 }
 function openShopping() {
   sheetBack("⬡ التسوق والطلبات", [
@@ -782,7 +799,6 @@ const normAr = t => (t || "").toString().toLowerCase().replace(/[\u064B-\u065F\u
 const hitStr = (x, tq) => sMode === "starts" ? (x.startsWith(tq) || x.split(/\s+/).some(w => w.startsWith(tq))) : x.includes(tq);
 function matches(p) {
   if (S.careLive === false && typeOfCat(p.categoryId) === "care") return false;
-  if (term) { const tq = normAr(term); const hit = [normAr(p.name), normAr(p.keywords || ""), ...(p.flavors || []).map(f => normAr(f.name))].some(x => hitStr(x, tq)); if (!hit) return false; if (sType && typeOfCat(p.categoryId) !== sType) return false; if (sSub && p.categoryId !== sSub) return false; }
   if (selCountry && (p.country || "") !== selCountry) return false;
   if (selSub) return p.categoryId === selSub;
   if (selCat) { const ids = [selCat, ...cats.filter(c => c.parentId === selCat).map(c => c.id)]; return ids.includes(p.categoryId); }
@@ -807,9 +823,11 @@ function card(p) {
 }
 let sIdx = null, sIdxP = null;
 /* فهرس البحث: وثائق catalogIndex (قراءة واحدة لكل وثيقة عند أول بحث في الزيارة) */
+const INDEX_CONFIG = { apiKey: "AIzaSyDYVMf8jQEA6QEX6Qpuiw5LJOz3HbVdMRk", authDomain: "astorh2.firebaseapp.com", projectId: "astorh2", storageBucket: "astorh2.firebasestorage.app", messagingSenderId: "585291472384", appId: "1:585291472384:web:8b0c50199f2ad936a582e5" };
+const idxDb = getFirestore(initializeApp(INDEX_CONFIG, "index"));
 function ensureIndex() {
   if (sIdx || sIdxP) return;
-  sIdxP = getDocs(collection(db, "catalogIndex"))
+  sIdxP = getDocs(collection(idxDb, "catalogIndex"))
     .then(snap => { sIdx = snap.docs.flatMap(d => d.data().items || []); render(); })
     .catch(() => { sIdxP = null; });
 }
@@ -932,8 +950,7 @@ function render() {
 }
 function renderProducts() {
   $("hbox").hidden = !(view === "home" && !selCat && !selType && !selCountry && !term);
-  let list = prods.filter(matches).sort(sorter);
-  if (term) list = searchIdx(term);
+  let list = term ? searchIdx(term) : prods.filter(matches).sort(sorter);
   if (view === "offers") list = list.filter(p => p.offer);
   if (view === "fav") list = list.filter(p => favs().includes(p.id));
   if (view === "new") list = [...list].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 12);
@@ -963,15 +980,22 @@ function paintList(list) {
 }
 const sug = $("sug"), byName = (a, b) => (a.name || "").localeCompare(b.name || "", "ar");
 function showSug(v) {
-  if (!v) { sug.hidden = true; return; }
-  const l = prods.filter(p => (p.name || "").toLowerCase().includes(v.toLowerCase())).sort(byName).slice(0, 8);
+  if (!v || normAr(v).length < 2) { sug.hidden = true; return; }
+  ensureIndex();
+  const tq = normAr(v), seen = new Set();
+  const l = (sIdx || []).filter(it => hitStr(it.n, tq)).filter(it => seen.has(it.name) ? false : (seen.add(it.name), true)).slice(0, 8);
   sug.replaceChildren(...(l.length
-    ? l.map(p => el("button", { type: "button", text: p.name, onclick: () => { $("q").value = p.name; term = p.name; sug.hidden = true; render(); } }))
-    : [el("p", { class: "empty", style: "padding:12px", text: "لا توجد نتائج" })]));
+    ? l.map(it => el("button", { type: "button", text: it.name, onclick: () => { $("q").value = it.name; term = it.name; sug.hidden = true; render(); } }))
+    : [el("p", { class: "empty", style: "padding:12px", text: sIdx ? "لا توجد نتائج" : "جارٍ تحميل البحث..." })]));
   sug.hidden = false;
 }
-let qt; $("q").oninput = e => { const v = e.target.value.trim(); showSug(v); clearTimeout(qt); qt = setTimeout(() => { term = normAr(v).length >= 2 ? v : ""; render(); }, 200); };
-$("q").onkeydown = e => { if (e.key === "Enter") { sug.hidden = true; term = normAr(e.target.value.trim()).length >= 2 ? e.target.value.trim() : ""; render(); } };
+function setTerm(v) {
+  term = normAr(v).length >= 2 ? v : "";
+  if (term) { selCat = ""; selSub = ""; selType = ""; selCountry = ""; homeType = ""; view = "home"; document.querySelectorAll("[data-hb]").forEach(x => x.classList.remove("on")); }
+  render();
+}
+let qt; $("q").oninput = e => { const v = e.target.value.trim(); showSug(v); clearTimeout(qt); qt = setTimeout(() => setTerm(v), 200); };
+$("q").onkeydown = e => { if (e.key === "Enter") { sug.hidden = true; setTerm(e.target.value.trim()); } };
 document.addEventListener("click", e => { if (!e.target.closest(".sw")) sug.hidden = true; });
 
 const sorter = (a, b) => { const v = $("sort").value; return v === "lo" ? (a.minPrice || 0) - (b.minPrice || 0) : v === "hi" ? (b.minPrice || 0) - (a.minPrice || 0) : 0; };
@@ -1095,7 +1119,7 @@ const THEMES = () => [["وردي", "#d6336c"], ["ذهبي", "#b8860b"], ["زمر
 let me = ls.get("meCache", null);
 async function loadMe() { await new Promise(r => { const un = onAuthStateChanged(auth, async u => { un(); if (u) await syncMe(u); else { me = null; ls.set("meCache", null); } r(); }); }); }
 let hot = {}; const hotIds = () => Object.entries(hot).sort((a, b) => b[1] - a[1]).slice(0, 6).map(e => e[0]);
-async function loadHot() { try { const hr = await getDoc(doc(db, "settings", "hotreset")); hotResetMs = hr.exists() ? (hr.data().at?.toMillis?.() || 0) : 0; } catch {} try { const s = await getDocs(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5)))); const m = {}; s.docs.filter(soldOk).forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; } catch {} }
+async function loadHot() { try { const h = await getDoc(doc(db, "botInfo", "hot")); const m = {}; ((h.data()?.items) || []).forEach(x => { m[x.id] = x.qty; }); hot = m; } catch {} }
 const G = (m, f) => (me?.gender || ls.get("g")) === "f" ? f : m;
 const setZoom = z => { document.body.style.zoom = z; ls.set("zoom", z); document.body.classList.toggle("zsmall", z < 1); document.body.classList.toggle("zlarge", z > 1); }; const zoomNow = () => Number(ls.get("zoom", 1)) || 1; setZoom(zoomNow());
 const avBadge = a => /^https?:/.test(a || "") ? el("img", { src: a, alt: "", style: "width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle" }) : (a || "👤");
@@ -1189,14 +1213,15 @@ async function googleLogin(after) {
     if (me?.new) profileSetup(after); else { toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (after) after(); }
   } catch (e) { toast(e.code === "auth/popup-closed-by-user" ? "أُلغي التسجيل" : "تعذر: " + e.code); }
 }
+const loginEmail = v => { const t = v.trim(); return /^[+0-9٠-٩\s-]{9,}$/.test(t) ? "p" + normPh(t) + "@customer.astorh.local" : t; };
 function authSheet(after) {
   if (me?.new) return profileSetup(after);
-  const e1 = el("input", { type: "email", dir: "ltr", placeholder: "البريد الإلكتروني" }), p1 = el("input", { type: "password", dir: "ltr", placeholder: "كلمة المرور" });
+  const e1 = el("input", { type: "text", dir: "ltr", placeholder: "البريد الإلكتروني أو رقم الجوال" }), p1 = el("input", { type: "password", dir: "ltr", placeholder: "كلمة المرور" });
   const done = async u => { await syncMe(u); if (me?.new) profileSetup(after); else { toast(G("أهلاً بك ", "أهلاً بكِ ") + me.name + " ✓"); close(); if (after) after(); } };
   const run = fn => async () => { try { done((await fn()).user); } catch (e) { toast(e.code === "auth/invalid-credential" ? "البريد أو كلمة المرور غير صحيحة" : e.code === "auth/email-already-in-use" ? "البريد مسجل، سجّل دخول" : "تعذر: " + e.code); } };
   open([el("h2", { text: G("حيّاك الله 🌹", "حيّاكِ الله 🌹") }), el("p", { text: G("سجّل دخولك لتكمل طلبك وتتابعه بسهولة", "سجّلي دخولك لتكملي طلبك وتتابعيه بسهولة"), style: "color:var(--muted)" }), e1, el("div", { style: "height:8px" }), p1,
-    el("button", { class: "pri", text: "دخول", style: "width:100%;margin-top:12px", onclick: run(() => signInWithEmailAndPassword(auth, e1.value.trim(), p1.value)) }),
-    el("button", { text: "حساب جديد", style: "width:100%;margin-top:8px", onclick: run(() => createUserWithEmailAndPassword(auth, e1.value.trim(), p1.value)) }),
+    el("button", { class: "pri", text: "دخول", style: "width:100%;margin-top:12px", onclick: run(() => signInWithEmailAndPassword(auth, loginEmail(e1.value), p1.value)) }),
+    el("button", { text: "حساب جديد", style: "width:100%;margin-top:8px", onclick: run(() => createUserWithEmailAndPassword(auth, loginEmail(e1.value), p1.value)) }),
     el("button", { text: "🔵 المتابعة بحساب قوقل", style: "width:100%;margin-top:8px", onclick: () => googleLogin(after) }),
     el("button", { text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
 }
@@ -1212,10 +1237,8 @@ async function openProfile() {
     el("p", { text: "📧 " + (me.email || ""), style: "color:var(--muted)" }),
     isVerified() ? el("p", { text: "✅ رقمك موثّق: " + me.phone, style: "color:var(--ok);font-weight:600" }) : el("button", { class: "pri", style: "width:100%;margin-top:6px", text: "📲 تأكيد رقمك عبر واتساب", onclick: () => openVerify(openProfile) }),
     el("button", { style: "width:100%;margin-top:10px", text: `❤️ مفضلتي (${(me.favs || []).length})`, onclick: () => { close(); setView("fav"); } }),
-    el("label", { text: "ردود المتجر على بلاغاتك واقتراحاتك" }), reps, el("label", { text: "طلباتي" }), ords,
+    el("label", { text: "ردود المتجر على بلاغاتك واقتراحاتك" }), reps, 
     el("button", { text: "تسجيل الخروج", style: "width:100%;margin-top:10px", onclick: () => signOut(auth).then(() => location.reload()) }), el("button", { class: "pri", text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
-  try { const s = await getDocs(query(collection(db, "orders"), where("uid", "==", me.id)));
-    ords.replaceChildren(...(s.docs.length ? s.docs.flatMap(d => { const o = d.data(); return [el("div", { style: "display:flex;gap:6px;margin-bottom:6px" }, el("button", { style: "flex:1;text-align:right", text: `${money(o.total || 0)} — ${ST_ALL[o.status] || o.status}`, onclick: () => orderView("o", d.id) }), el("button", { class: "pri", text: "🔁 أعد طلبي", onclick: () => reorder(o) })), ...ratingRow(d.id, o)]; }) : [el("small", { text: "لا توجد طلبات بعد" })])); } catch { ords.textContent = "تعذر التحميل"; }
   try { const rs = []; for (const col of ["reports", "suggestions"]) (await getDocs(query(collection(db, col), where("phone", "==", me.phone || "-")))).docs.forEach(d => { const x = d.data(); if (x.reply) rs.push(el("div", { class: "cm" }, el("small", { text: x.text }), el("div", { text: "↩️ " + x.reply }))); });
     reps.replaceChildren(...(rs.length ? rs : [el("small", { text: "لا توجد ردود بعد" })])); } catch {}
 }
@@ -1251,11 +1274,18 @@ function suggestProduct(name) {
       open([el("h2", { text: "✅ شكراً لك" }), el("p", { text: "سجّلنا طلبك، وبإذن الله ننظر في توفيره قريباً 🌹" }), el("button", { class: "pri", text: "حسناً", onclick: close })]); } }), el("button", { text: "إغلاق", style: "width:100%;margin-top:8px", onclick: close })]);
 }
 function searchSheet() {
-  const q = el("input", { type: "search", placeholder: G("ابحث عن منتج...", "ابحثي عن منتج..."), autocomplete: "off", style: "font-size:1.05rem" }), res = el("div", { class: "grid", style: "margin-top:12px" });
-  const draw = () => { const v = q.value.trim().toLowerCase(), hs = hotIds();
-    const l = prods.filter(p => !v || ((p.name || "") + " " + (p.keywords || "")).toLowerCase().includes(v)).sort((a, b) => (hs.includes(b.id) - hs.includes(a.id)) || (a.name || "").localeCompare(b.name || "", "ar"));
-    res.replaceChildren(...(l.length ? l.map(card) : [el("div", { style: "grid-column:1/-1;text-align:center" }, el("p", { text: "ما لقينا «" + q.value + "»" }), el("button", { class: "pri", text: G("💡 تقترح علينا توفيره؟", "💡 تقترحين علينا توفيره؟"), onclick: () => suggestProduct(q.value) }))])); };
-  q.oninput = draw; open([el("div", { style: "display:flex;gap:8px" }, q, el("button", { text: "✕", onclick: close })), res]); draw(); $("sheet").style.minHeight = "85vh"; setTimeout(() => q.focus(), 100);
+  const q = el("input", { type: "search", placeholder: "ابحث عن منتج...", autocomplete: "off", style: "font-size:1.05rem" }), res = el("div", { class: "grid", style: "margin-top:12px" });
+  const draw = () => {
+    const v = q.value.trim();
+    if (normAr(v).length < 2) { res.replaceChildren(el("p", { class: "empty", text: "اكتب حرفين على الأقل" })); return; }
+    ensureIndex();
+    const hits = searchIdx(v);
+    res.replaceChildren(...(hits.length ? hits.map(card) : [el("div", { style: "grid-column:1/-1;text-align:center" }, el("p", { text: sIdx ? "ما لقينا «" + v + "»" : "جارٍ تحميل البحث..." }), el("button", { class: "pri", text: "💡 تقترح علينا توفيره؟", onclick: () => suggestProduct(v) }))]));
+  };
+  q.oninput = draw;
+  open([el("div", { style: "display:flex;gap:8px" }, q, el("button", { text: "✕", onclick: close })), res]);
+  $("sheet").style.minHeight = "85vh";
+  setTimeout(() => q.focus(), 100);
 }
 $("bsearch").onclick = () => searchSheet();
 window.addEventListener("hashchange", () => { const m = location.hash.match(/^#([od])=(.+)$/); if (location.hash === "#courier" || m?.[1] === "d") courierPage(); else if (m) orderView(m[1], m[2]); });
@@ -1327,7 +1357,7 @@ function live(q, fn) { let first = true; onSnapshot(q, s => { if (first) { first
 function startLive() {
   // المنتجات تُحمَّل عند فتح القسم فقط
   live(collection(db, "categories"), s => { catsAll = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0)); cats = catsAll.filter(c => c.active !== false); render(); });
-  live(query(collection(db, "sold"), where("at", ">", new Date(Date.now() - 30 * 864e5))), s => { const m = {}; s.docs.filter(soldOk).forEach(d => (d.data().items || []).forEach(i => { m[i.id] = (m[i.id] || 0) + (i.qty || 1); })); hot = m; render(); });
+  live(doc(db, "botInfo", "hot"), s => { const m = {}; ((s.data()?.items) || []).forEach(x => { m[x.id] = x.qty; }); hot = m; render(); });
   live(doc(db, "settings", "store"), s => { S = s.data() || {}; loadHot().then(() => render()); if (S.freeFrom === undefined || S.freeFrom === "") S.freeFrom = 100;
     const mine = ls.get("th"); if (mine || S.color) setColor(mine || S.color);
     document.documentElement.style.setProperty("--cols", Number(S.cols) || 6);
@@ -1472,6 +1502,10 @@ function openCart() {
 }
 
 /* إتمام الطلب */
+function waLocLink() {
+  const bn = botNumber();
+  return bn ? `https://wa.me/${bn}?text=${encodeURIComponent("موقعي للطلب: أرسلي الموقع الآن")}` : "#";
+}
 function openCheckout() {
   const saved = me ? { ...ls.get("cust", {}), name: me.name, phone: me.phone || "" } : ls.get("cust", {});
   const name = el("input", { placeholder: "الاسم الكامل", value: saved.name || "", required: true });
@@ -1499,7 +1533,7 @@ function openCheckout() {
     navigator.geolocation.getCurrentPosition(p => { loc = `https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`; locBtn.textContent = "✅ تم تحديد موقعك"; locInfo.textContent = "سيُرسل موقعك مع الطلب"; },
       () => { locBtn.textContent = "📍 مشاركة موقعي الحالي"; toast("تعذر التحديد، فعّل الصلاحية أو الصق رابطاً"); }, { enableHighAccuracy: true, timeout: 12000 });
   } });
-  const locBox = lm === "off" ? null : el("div", { class: "loc" }, el("b", { text: "📍 موقع التوصيل" }), el("div", { style: "display:flex;flex-direction:column;gap:8px;margin-top:8px" }, locBtn, other), locInfo);
+  const locBox = lm === "off" ? null : el("div", { class: "loc" }, el("b", { text: "📍 موقع التوصيل" }), el("div", { style: "display:flex;flex-direction:column;gap:8px;margin-top:8px" }, locBtn, other, el("a", { href: waLocLink(), target: "_blank", rel: "noopener", text: "💬 مشاركة الموقع عبر واتساب (يُربط بطلبك تلقائياً)", style: "display:block;text-align:center;padding:10px;border-radius:12px;background:#25d366;color:#fff;font-weight:700;text-decoration:none" })), locInfo);
   const gBanner = me ? null : el("div", { class: "loc" },
     el("b", { text: "⚡ أسرع بحساب قوقل" }),
     el("small", { text: "تُعبّأ بياناتك تلقائياً وتتابع طلبك بسهولة" }),
